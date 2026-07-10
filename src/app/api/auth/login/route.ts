@@ -50,6 +50,10 @@ export async function POST(request: Request) {
         message: "Invalid email or password",
         _debug: {
           mockAuthFlag: process.env.NEXT_PUBLIC_USE_MOCK_AUTH ?? null,
+          apiBaseUrl: process.env.NEXT_PUBLIC_API_BASE_URL ?? null,
+          sessionCookieName: process.env.SESSION_COOKIE_NAME ?? null,
+          nodeEnv: process.env.NODE_ENV ?? null,
+          vercelEnv: process.env.VERCEL_ENV ?? null,
           errorMessage: error instanceof Error ? error.message : String(error),
         },
       },
