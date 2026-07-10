@@ -28,9 +28,13 @@ export function CartPanel({ onCheckout }: CartPanelProps) {
       <CardContent className="flex flex-1 flex-col gap-4 overflow-hidden">
         <CustomerSelector value={customerId} onChange={setCustomer} allowWalkIn placeholder="Walk-in Customer" />
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex flex-1 flex-col overflow-y-auto">
           {items.length === 0 ? (
-            <EmptyState title="Cart is empty" description="Tap a product to add it to the cart." />
+            <EmptyState
+              title="Cart is empty"
+              description="Tap a product to add it to the cart."
+              className="flex-1 justify-center border-none"
+            />
           ) : (
             <div className="flex flex-col gap-3">
               {items.map((item) => (
