@@ -43,8 +43,18 @@ export async function POST(request: Request) {
     await createSessionCookie(user.id, user.role)
 
     return NextResponse.json({ user })
-  } catch {
-    return NextResponse.json({ message: "Invalid email or password" }, { status: 401 })
+  } catch (error) {
+    // TEMP DIAGNOSTIC — remove after debugging the Vercel 401 issue
+    return NextResponse.json(
+      {
+        message: "Invalid email or password",
+        _debug: {
+          mockAuthFlag: process.env.NEXT_PUBLIC_USE_MOCK_AUTH ?? null,
+          errorMessage: error instanceof Error ? error.message : String(error),
+        },
+      },
+      { status: 401 }
+    )
   }
 }
 
