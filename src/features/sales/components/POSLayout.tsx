@@ -14,7 +14,7 @@ export function POSLayout() {
       <div className="min-h-0 overflow-hidden">
         <POSProductGrid />
       </div>
-      <div className="min-h-0">
+      <div className="min-h-0 self-start">
         <CartPanel onCheckout={() => setPaymentOpen(true)} />
       </div>
       <PaymentPanel open={paymentOpen} onOpenChange={setPaymentOpen} />

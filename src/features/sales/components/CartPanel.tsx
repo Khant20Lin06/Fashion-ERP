@@ -19,7 +19,7 @@ export function CartPanel({ onCheckout }: CartPanelProps) {
   const totals = cartTotals(items)
 
   return (
-    <Card className="flex h-full flex-col">
+    <Card className="flex max-h-full flex-col">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <ShoppingCart className="size-4" /> Cart
