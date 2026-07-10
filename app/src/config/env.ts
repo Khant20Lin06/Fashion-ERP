@@ -1,0 +1,26 @@
+/**
+ * Centralized, validated environment configuration.
+ * Never read `process.env` directly elsewhere in the app — import from here.
+ */
+import { z } from "zod"
+
+const envSchema = z.object({
+  NEXT_PUBLIC_API_BASE_URL: z.string().url().default("http://localhost:4000/api"),
+  NEXT_PUBLIC_APP_NAME: z.string().default("Fashion ERP/POS"),
+  SESSION_COOKIE_NAME: z.string().default("erp_session"),
+  SESSION_SECRET: z.string().min(1).default("dev-only-insecure-secret-change-me"),
+})
+
+const parsed = envSchema.safeParse({
+  NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
+  NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
+  SESSION_COOKIE_NAME: process.env.SESSION_COOKIE_NAME,
+  SESSION_SECRET: process.env.SESSION_SECRET,
+})
+
+if (!parsed.success) {
+  console.error("Invalid environment configuration:", parsed.error.flatten().fieldErrors)
+  throw new Error("Invalid environment configuration. Check your .env file.")
+}
+
+export const env = parsed.data
