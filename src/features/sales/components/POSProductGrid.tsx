@@ -7,16 +7,19 @@ import { Badge } from "@/components/ui/badge"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import { POSProductCard } from "@/components/sales/POSProductCard"
-import { useProducts } from "@/features/products/hooks/useProducts"
+import { useAllProductsFull } from "@/features/products/hooks/useProducts"
 import { useCategories } from "@/features/products/hooks/useCategories"
 import { useCartStore } from "../stores/cart.store"
+import { VariantPickerDialog } from "./VariantPickerDialog"
+import type { Product, ProductVariant } from "@/features/products/types"
 
 /** POS product search (name/SKU/barcode) + category filter + tappable product grid. */
 export function POSProductGrid() {
-  const { data: products, isLoading } = useProducts()
+  const { data: products, isLoading } = useAllProductsFull()
   const { data: categories } = useCategories()
   const [query, setQuery] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string | undefined>(undefined)
+  const [pickerProduct, setPickerProduct] = useState<Product | undefined>(undefined)
   const addItem = useCartStore((state) => state.addItem)
 
   const filtered = useMemo(() => {
@@ -31,6 +34,37 @@ export function POSProductGrid() {
       )
     })
   }, [products, query, categoryFilter])
+
+  function handleProductClick(product: Product) {
+    if (product.variants.length > 0) {
+      setPickerProduct(product)
+      return
+    }
+    addItem({
+      id: product.id,
+      productId: product.id,
+      productName: product.name,
+      sku: product.sku,
+      imageUrl: primaryImage(product),
+      price: product.pricing.sellingPrice,
+      availableStock: product.stockQuantity,
+    })
+  }
+
+  function handleVariantConfirm(product: Product, variant: ProductVariant) {
+    addItem({
+      id: variant.id,
+      productId: product.id,
+      productName: product.name,
+      sku: variant.sku,
+      imageUrl: variant.imageUrl ?? primaryImage(product),
+      color: variant.attributes.color,
+      size: variant.attributes.size,
+      price: variant.sellingPrice,
+      availableStock: variant.stockQuantity,
+    })
+    setPickerProduct(undefined)
+  }
 
   return (
     <div className="flex max-h-full flex-col gap-4">
@@ -83,26 +117,28 @@ export function POSProductGrid() {
             {filtered.map((product) => (
               <POSProductCard
                 key={product.id}
-                imageUrl={product.imageUrl}
+                imageUrl={primaryImage(product)}
                 name={product.name}
-                price={product.sellingPrice}
+                variantLabel={product.variants.length > 0 ? `${product.variants.length} options` : undefined}
+                price={product.pricing.sellingPrice}
                 stockAvailable={product.stockQuantity}
-                onClick={() =>
-                  addItem({
-                    id: product.id,
-                    productId: product.id,
-                    productName: product.name,
-                    sku: product.sku,
-                    imageUrl: product.imageUrl,
-                    price: product.sellingPrice,
-                    availableStock: product.stockQuantity,
-                  })
-                }
+                onClick={() => handleProductClick(product)}
               />
             ))}
           </div>
         )}
       </div>
+
+      <VariantPickerDialog
+        product={pickerProduct}
+        open={!!pickerProduct}
+        onOpenChange={(open) => !open && setPickerProduct(undefined)}
+        onConfirm={(variant) => pickerProduct && handleVariantConfirm(pickerProduct, variant)}
+      />
     </div>
   )
+}
+
+function primaryImage(product: Product): string | undefined {
+  return product.images.find((i) => i.isPrimary)?.url ?? product.images[0]?.url
 }
