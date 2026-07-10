@@ -1,4 +1,5 @@
 import { apiClient } from "@/lib/api/client"
+import { env } from "@/config/env"
 import type { DashboardSummary, SalesTrendGranularity } from "../types"
 import { getMockDashboardSummary } from "./mock-data"
 
@@ -12,7 +13,7 @@ import { getMockDashboardSummary } from "./mock-data"
 export async function fetchDashboardSummary(
   granularity: SalesTrendGranularity = "monthly"
 ): Promise<DashboardSummary> {
-  if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH === "true") {
+  if (env.NEXT_PUBLIC_USE_MOCK_AUTH) {
     return getMockDashboardSummary(granularity)
   }
 

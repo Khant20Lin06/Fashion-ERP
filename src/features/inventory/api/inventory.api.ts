@@ -1,4 +1,5 @@
 import { apiClient } from "@/lib/api/client"
+import { env } from "@/config/env"
 import type { InventoryItem, InventoryKpis } from "../types"
 import {
   categoryStockDistribution,
@@ -7,7 +8,7 @@ import {
   stockValueByWarehouse,
 } from "./mock-data"
 
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_AUTH === "true"
+const USE_MOCK = env.NEXT_PUBLIC_USE_MOCK_AUTH
 
 function delay<T>(value: T, ms = 250): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms))

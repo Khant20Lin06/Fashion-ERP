@@ -1,9 +1,10 @@
 import { apiClient } from "@/lib/api/client"
+import { env } from "@/config/env"
 import type { LeaveBalance, LeaveDashboardMetrics, LeaveRequest, LeaveStatus } from "../types"
 import type { LeaveRequestFormValues } from "../schemas/leave.schema"
 import { leaveDashboardMetrics, mockLeaveBalances, mockLeaveRequests } from "./mock-data"
 
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_AUTH === "true"
+const USE_MOCK = env.NEXT_PUBLIC_USE_MOCK_AUTH
 
 function delay<T>(value: T, ms = 200): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms))
