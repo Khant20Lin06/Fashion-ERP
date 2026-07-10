@@ -28,7 +28,7 @@ export function CartPanel({ onCheckout }: CartPanelProps) {
       <CardContent className="flex flex-1 flex-col gap-4 overflow-hidden">
         <CustomerSelector value={customerId} onChange={setCustomer} allowWalkIn placeholder="Walk-in Customer" />
 
-        <div className="flex flex-1 flex-col overflow-y-auto">
+        <div className={items.length === 0 ? "flex flex-1 flex-col overflow-y-auto" : "min-h-0 overflow-y-auto"}>
           {items.length === 0 ? (
             <EmptyState
               title="Cart is empty"
