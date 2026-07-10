@@ -33,7 +33,7 @@ export function POSProductGrid() {
   }, [products, query, categoryFilter])
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex max-h-full flex-col gap-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -69,7 +69,7 @@ export function POSProductGrid() {
           ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-h-0 overflow-y-auto">
         {isLoading ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
