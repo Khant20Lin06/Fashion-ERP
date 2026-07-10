@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { loginSchema } from "@/features/auth/schemas/login.schema"
 import { loginRequest } from "@/features/auth/api/auth.api"
 import { createSessionCookie } from "@/lib/session"
+import { env } from "@/config/env"
 import type { AuthUser } from "@/types/user"
 
 /**
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
   try {
     let user: AuthUser
 
-    if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH === "true") {
+    if (env.NEXT_PUBLIC_USE_MOCK_AUTH) {
       // Development fallback so the scaffold is runnable before a real backend
       // exists. Remove this branch once NEXT_PUBLIC_API_BASE_URL points at a
       // live ERP auth service.
@@ -43,22 +44,8 @@ export async function POST(request: Request) {
     await createSessionCookie(user.id, user.role)
 
     return NextResponse.json({ user })
-  } catch (error) {
-    // TEMP DIAGNOSTIC — remove after debugging the Vercel 401 issue
-    return NextResponse.json(
-      {
-        message: "Invalid email or password",
-        _debug: {
-          mockAuthFlag: process.env.NEXT_PUBLIC_USE_MOCK_AUTH ?? null,
-          apiBaseUrl: process.env.NEXT_PUBLIC_API_BASE_URL ?? null,
-          sessionCookieName: process.env.SESSION_COOKIE_NAME ?? null,
-          nodeEnv: process.env.NODE_ENV ?? null,
-          vercelEnv: process.env.VERCEL_ENV ?? null,
-          errorMessage: error instanceof Error ? error.message : String(error),
-        },
-      },
-      { status: 401 }
-    )
+  } catch {
+    return NextResponse.json({ message: "Invalid email or password" }, { status: 401 })
   }
 }
 
