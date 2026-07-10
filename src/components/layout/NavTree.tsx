@@ -19,11 +19,24 @@ export function NavTree({ items, collapsed = false, depth = 0 }: NavTreeProps) {
   const openMenuKeys = useSidebarStore((s) => s.openMenuKeys)
   const toggleMenu = useSidebarStore((s) => s.toggleMenu)
 
+  // A route can be a prefix-match candidate for more than one sibling at the
+  // same level (e.g. both "/dashboard/sales" and "/dashboard/sales/pos" are
+  // prefixes of "/dashboard/sales/pos"). Only the item whose href matches the
+  // most specifically (longest match, exact match wins outright) should be
+  // highlighted — otherwise a parent "Dashboard" link lights up on every one
+  // of its siblings' pages. The app root ("/dashboard") is a prefix of every
+  // route in the app, so it only ever counts as a match when it's exact.
+  const matches = (href: string) => pathname === href || (href !== "/dashboard" && pathname.startsWith(`${href}/`))
+  const bestMatchHref = items
+    .map((item) => item.href)
+    .filter((href): href is string => !!href && matches(href))
+    .sort((a, b) => b.length - a.length)[0]
+
   return (
     <ul className="flex flex-col gap-0.5">
       {items.map((item) => {
         const key = item.href ?? item.label
-        const isActive = item.href ? pathname === item.href || pathname.startsWith(`${item.href}/`) : false
+        const isActive = !!item.href && item.href === bestMatchHref
         const hasChildren = !!item.children?.length
         const isOpen = openMenuKeys.includes(key) || (hasChildren && item.children!.some((c) => pathname.startsWith(c.href ?? "")))
         const Icon = item.icon
