@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { createAccount, deleteAccount, fetchAccounts, updateAccount, type AccountFormValues } from "../api/account.api"
+import { toastApiError } from "@/lib/api/errors"
+import { createAccount, fetchAccounts, updateAccount, type AccountFormValues } from "../api/account.api"
 
 export function useAccounts() {
   return useQuery({
@@ -17,7 +18,7 @@ export function useCreateAccount() {
       queryClient.invalidateQueries({ queryKey: ["accounting", "accounts"] })
       toast.success("Account created")
     },
-    onError: () => toast.error("Failed to create account"),
+    onError: (error) => toastApiError(error, "Failed to create account"),
   })
 }
 
@@ -29,18 +30,10 @@ export function useUpdateAccount(id: string) {
       queryClient.invalidateQueries({ queryKey: ["accounting", "accounts"] })
       toast.success("Account updated")
     },
-    onError: () => toast.error("Failed to update account"),
+    onError: (error) => toastApiError(error, "Failed to update account"),
   })
 }
 
-export function useDeleteAccount() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => deleteAccount(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["accounting", "accounts"] })
-      toast.success("Account deleted")
-    },
-    onError: () => toast.error("Failed to delete account"),
-  })
-}
+// No useDeleteAccount hook: the real backend exposes no DELETE
+// /accounts/{id} route (GET/POST/PATCH only — see AccountsController) —
+// deleting a GL account isn't a supported server-side operation.

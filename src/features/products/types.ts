@@ -7,6 +7,7 @@ export type Season = "spring_summer" | "autumn_winter" | "all_season"
 
 export type Category = {
   id: string
+  code: string
   name: string
   parentId: string | null
   isActive: boolean
@@ -15,6 +16,7 @@ export type Category = {
 
 export type Brand = {
   id: string
+  code: string
   name: string
   logoUrl?: string
   country?: string
@@ -38,9 +40,11 @@ export type AttributeKind = "size" | "color" | "style" | "material"
 export type AttributeOption = {
   id: string
   kind: AttributeKind
+  code: string
   value: string
   /** Hex swatch, only meaningful for the "color" kind. */
   swatch?: string
+  isActive: boolean
 }
 
 export type ProductImage = {
@@ -93,6 +97,8 @@ export type ProductHistoryEntry = {
 
 export type Product = {
   id: string
+  /** Backend Product.code — immutable after creation, distinct from the variant-level `sku` below. */
+  code?: string
   name: string
   type: ProductType
   categoryId: string

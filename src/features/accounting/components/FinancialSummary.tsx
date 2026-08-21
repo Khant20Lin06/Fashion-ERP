@@ -3,8 +3,20 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
+import { EmptyState } from "@/components/ui/empty-state"
+import { ErrorState } from "@/components/ui/error-state"
+import { FeatureUnavailable } from "@/components/feature-gate/FeatureUnavailable"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { formatCurrency } from "@/lib/format"
-import { useBalanceSheet, useCashFlowStatement, useProfitAndLoss } from "../hooks/useLedger"
+import { useBalanceSheet, useCashFlowStatement, useProfitAndLoss, useTrialBalance } from "../hooks/useLedger"
 import type { BalanceSheetLine } from "../types"
 
 function StatementRow({ label, amount, bold }: { label: string; amount: number; bold?: boolean }) {
@@ -28,7 +40,20 @@ function SectionLines({ lines }: { lines: BalanceSheetLine[] }) {
 
 /** Profit & Loss statement — Revenue, COGS, Gross Profit, Expenses, Net Profit. */
 export function ProfitAndLossStatement() {
-  const { data, isLoading } = useProfitAndLoss()
+  const { data, isLoading, isError, refetch } = useProfitAndLoss()
+
+  if (isError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Profit &amp; Loss</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ErrorState message="Couldn't load the profit and loss statement." onRetry={refetch} />
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card>
@@ -56,7 +81,20 @@ export function ProfitAndLossStatement() {
 
 /** Balance Sheet — Assets, Liabilities, Equity. */
 export function BalanceSheetStatement() {
-  const { data, isLoading } = useBalanceSheet()
+  const { data, isLoading, isError, refetch } = useBalanceSheet()
+
+  if (isError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Balance Sheet</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ErrorState message="Couldn't load the balance sheet." onRetry={refetch} />
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card>
@@ -95,7 +133,23 @@ export function BalanceSheetStatement() {
 
 /** Cash Flow statement — Operating, Investing, Financing. */
 export function CashFlowStatementCard() {
-  const { data, isLoading } = useCashFlowStatement()
+  const { data, isLoading, isError } = useCashFlowStatement()
+
+  if (isError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Cash Flow</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <FeatureUnavailable
+            title="Cash flow statement not available"
+            description="No backend cash-flow-statement endpoint exists yet."
+          />
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card>
@@ -129,6 +183,60 @@ export function CashFlowStatementCard() {
             <StatementRow label="Net Change in Cash" amount={data.netChange} bold />
           </>
         )}
+      </CardContent>
+    </Card>
+  )
+}
+
+/** Trial Balance — SUM(debit)/SUM(credit) per account, backend-computed over POSTED journal lines. */
+export function TrialBalanceStatement() {
+  const { data, isLoading, isError, refetch } = useTrialBalance()
+
+  if (isLoading) return <Skeleton className="h-56 w-full" />
+
+  if (isError) return <ErrorState message="Couldn't load trial balance." onRetry={refetch} />
+
+  if (!data || data.rows.length === 0) {
+    return <EmptyState title="No posted activity" description="Post a journal entry to see it reflected here." />
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Trial Balance</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Code</TableHead>
+              <TableHead>Account</TableHead>
+              <TableHead className="text-right">Debit</TableHead>
+              <TableHead className="text-right">Credit</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.rows.map((row) => (
+              <TableRow key={row.accountId}>
+                <TableCell className="font-mono text-xs">{row.accountCode}</TableCell>
+                <TableCell>{row.accountName}</TableCell>
+                <TableCell className="text-right">
+                  {row.totalDebit > 0 ? formatCurrency(row.totalDebit) : <span className="text-muted-foreground">—</span>}
+                </TableCell>
+                <TableCell className="text-right">
+                  {row.totalCredit > 0 ? formatCurrency(row.totalCredit) : <span className="text-muted-foreground">—</span>}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+          <TableFooter>
+            <TableRow>
+              <TableCell colSpan={2} className="font-semibold">Total</TableCell>
+              <TableCell className="text-right font-semibold">{formatCurrency(data.totalDebit)}</TableCell>
+              <TableCell className="text-right font-semibold">{formatCurrency(data.totalCredit)}</TableCell>
+            </TableRow>
+          </TableFooter>
+        </Table>
       </CardContent>
     </Card>
   )

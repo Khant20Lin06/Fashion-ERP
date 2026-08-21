@@ -2,10 +2,10 @@ import { z } from "zod"
 
 export const paymentFormSchema = z.object({
   supplierId: z.string().min(1, "Supplier is required"),
-  invoiceId: z.string().min(1, "Invoice is required"),
+  purchaseOrderId: z.string().min(1, "Purchase order is required"),
+  paymentMethodId: z.string().min(1, "Payment method is required"),
   paymentDate: z.string().min(1, "Payment date is required"),
   amount: z.number().positive("Amount must be greater than zero"),
-  method: z.enum(["cash", "bank_transfer", "credit", "mobile_payment"]),
   referenceNumber: z.string().optional(),
   notes: z.string().max(1000).optional(),
 })

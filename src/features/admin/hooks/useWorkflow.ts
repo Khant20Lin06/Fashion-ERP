@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { toastApiError } from "@/lib/api/errors"
 import { fetchWorkflow, fetchWorkflows, saveWorkflow, updateWorkflowStatus } from "../api/workflow.api"
 import type { WorkflowEdge, WorkflowNode, WorkflowStatus } from "../types"
 
@@ -23,7 +24,7 @@ export function useSaveWorkflow(id: string) {
       queryClient.invalidateQueries({ queryKey: ["admin", "workflows"] })
       toast.success("Workflow saved")
     },
-    onError: () => toast.error("Failed to save workflow"),
+    onError: (error) => toastApiError(error, "Failed to save workflow"),
   })
 }
 
@@ -35,6 +36,6 @@ export function useUpdateWorkflowStatus() {
       queryClient.invalidateQueries({ queryKey: ["admin", "workflows"] })
       toast.success("Workflow status updated")
     },
-    onError: () => toast.error("Failed to update workflow status"),
+    onError: (error) => toastApiError(error, "Failed to update workflow status"),
   })
 }

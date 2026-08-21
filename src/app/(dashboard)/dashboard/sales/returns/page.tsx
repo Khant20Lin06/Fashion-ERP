@@ -9,7 +9,7 @@ export default function SalesReturnsPage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Returns & Refund</h1>
-        <p className="text-sm text-muted-foreground">Process product returns, exchanges, and refunds.</p>
+        <p className="text-sm text-muted-foreground">Create sales returns, confirm stock impact, and track refund progress.</p>
       </div>
 
       <ReturnForm />

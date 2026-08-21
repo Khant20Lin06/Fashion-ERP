@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { toastApiError } from "@/lib/api/errors"
 import {
   createEmployee,
   deleteEmployee,
@@ -33,15 +34,19 @@ export function useEmployeeDocuments(employeeId: string | undefined) {
   })
 }
 
+// Headcount changes affect HR KPIs/analytics (department distribution,
+// headcount growth, turnover) too — invalidate the whole "hr" prefix rather
+// than just the employees list.
+
 export function useCreateEmployee() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (values: EmployeeFormValues) => createEmployee(values),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["hr", "employees"] })
+      queryClient.invalidateQueries({ queryKey: ["hr"] })
       toast.success("Employee created")
     },
-    onError: () => toast.error("Failed to create employee"),
+    onError: (error) => toastApiError(error, "Failed to create employee"),
   })
 }
 
@@ -50,11 +55,11 @@ export function useUpdateEmployee(id: string) {
   return useMutation({
     mutationFn: (values: EmployeeFormValues) => updateEmployee(id, values),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["hr", "employees"] })
+      queryClient.invalidateQueries({ queryKey: ["hr"] })
       queryClient.invalidateQueries({ queryKey: ["hr", "employees", id] })
       toast.success("Employee updated")
     },
-    onError: () => toast.error("Failed to update employee"),
+    onError: (error) => toastApiError(error, "Failed to update employee"),
   })
 }
 
@@ -63,9 +68,9 @@ export function useDeleteEmployee() {
   return useMutation({
     mutationFn: (id: string) => deleteEmployee(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["hr", "employees"] })
+      queryClient.invalidateQueries({ queryKey: ["hr"] })
       toast.success("Employee deleted")
     },
-    onError: () => toast.error("Failed to delete employee"),
+    onError: (error) => toastApiError(error, "Failed to delete employee"),
   })
 }

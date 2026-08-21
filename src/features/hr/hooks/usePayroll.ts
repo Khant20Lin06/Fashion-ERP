@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { toastApiError } from "@/lib/api/errors"
 import {
   createPayrollEntry,
   createPerformanceReview,
@@ -36,7 +37,7 @@ export function useCreatePayrollEntry() {
       queryClient.invalidateQueries({ queryKey: ["hr", "payroll"] })
       toast.success("Payroll entry created")
     },
-    onError: () => toast.error("Failed to create payroll entry"),
+    onError: (error) => toastApiError(error, "Failed to create payroll entry"),
   })
 }
 
@@ -48,7 +49,7 @@ export function useUpdatePayrollStatus() {
       queryClient.invalidateQueries({ queryKey: ["hr", "payroll"] })
       toast.success("Payroll status updated")
     },
-    onError: () => toast.error("Failed to update payroll status"),
+    onError: (error) => toastApiError(error, "Failed to update payroll status"),
   })
 }
 
@@ -66,7 +67,7 @@ export function useCreatePerformanceReview() {
       queryClient.invalidateQueries({ queryKey: ["hr", "performance"] })
       toast.success("Performance review saved")
     },
-    onError: () => toast.error("Failed to save performance review"),
+    onError: (error) => toastApiError(error, "Failed to save performance review"),
   })
 }
 

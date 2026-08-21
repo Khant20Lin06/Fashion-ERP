@@ -1,22 +1,37 @@
 "use client"
 
-import { ShoppingCart } from "lucide-react"
+import { ShoppingCart, Tag } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
+import { Input } from "@/components/ui/input"
 import { CartItem } from "@/components/sales/CartItem"
-import { CustomerSelector } from "./CustomerSelector"
 import { formatCurrency } from "@/lib/format"
-import { useCartStore, cartTotals } from "../stores/cart.store"
+import { useAuthStore } from "@/stores/auth.store"
+import { hasPermission } from "@/types/user"
+import { CustomerSelector } from "./CustomerSelector"
+import { cartTotals, useCartStore } from "../stores/cart.store"
 
 type CartPanelProps = {
   onCheckout: () => void
 }
 
-/** POS cart panel — line items, customer selection, discount, tax, totals, and checkout trigger. */
+/** POS cart panel -- line items, customer selection, promotion code, discount, tax, totals, and checkout trigger. */
 export function CartPanel({ onCheckout }: CartPanelProps) {
-  const { items, customerId, removeItem, setQuantity, setDiscount, setCustomer, clearCart } = useCartStore()
+  const { items, customerId, promotionCode, removeItem, setQuantity, setDiscount, setCustomer, setPromotionCode, clearCart } =
+    useCartStore()
   const totals = cartTotals(items)
+  const user = useAuthStore((state) => state.user)
+  // Real backend requirement: POST /sales additionally requires
+  // sales.discount.apply whenever promotionCode is set or any item has a
+  // non-zero discountAmount (see SalesController.create). ACTION_MAP in
+  // lib/backend-auth.ts maps the real "apply" action word onto the
+  // frontend's "approve" bucket, so a user actually holding
+  // sales.discount.apply ends up with module "sales" + action "approve"
+  // here. Hiding the promotion-code input and per-item discount controls
+  // for users without it avoids letting them fill in values that would
+  // just 403 at submit.
+  const canApplyDiscount = hasPermission(user, "sales", "approve")
 
   return (
     <Card className="flex max-h-full flex-col">
@@ -27,6 +42,20 @@ export function CartPanel({ onCheckout }: CartPanelProps) {
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-4 overflow-hidden">
         <CustomerSelector value={customerId} onChange={setCustomer} allowWalkIn placeholder="Walk-in Customer" />
+
+        {canApplyDiscount && (
+          <div className="space-y-2 rounded-lg border border-dashed border-border/70 p-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Tag className="size-4" />
+              <span>Promotion Code</span>
+            </div>
+            <Input
+              value={promotionCode ?? ""}
+              onChange={(event) => setPromotionCode(event.target.value)}
+              placeholder="Enter promo code"
+            />
+          </div>
+        )}
 
         <div className={items.length === 0 ? "flex flex-1 flex-col overflow-y-auto" : "min-h-0 overflow-y-auto"}>
           {items.length === 0 ? (
@@ -44,6 +73,7 @@ export function CartPanel({ onCheckout }: CartPanelProps) {
                   onQuantityChange={(qty) => setQuantity(item.id, qty)}
                   onDiscountChange={(discount) => setDiscount(item.id, discount)}
                   onRemove={() => removeItem(item.id)}
+                  canDiscount={canApplyDiscount}
                 />
               ))}
             </div>

@@ -9,7 +9,7 @@ export default function StockAdjustmentPage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Stock Adjustment</h1>
-        <p className="text-sm text-muted-foreground">Correct inventory differences from damage, loss, or stock counts.</p>
+        <p className="text-sm text-muted-foreground">Apply manual inventory corrections for damage, loss, found stock, or opening balance.</p>
       </div>
 
       <StockAdjustmentForm />

@@ -26,7 +26,8 @@ const trendIcons = { up: TrendingUp, down: TrendingDown, flat: Minus } as const
  * never a bespoke card per metric.
  */
 export function KPICard({ metric, icon: Icon, description }: KPICardProps) {
-  const TrendIcon = trendIcons[metric.trend]
+  const hasTrend = metric.trend !== undefined && metric.changePercent !== undefined
+  const TrendIcon = hasTrend ? trendIcons[metric.trend!] : undefined
 
   return (
     <Card>
@@ -45,11 +46,13 @@ export function KPICard({ metric, icon: Icon, description }: KPICardProps) {
         </p>
 
         <div className="flex items-center gap-1.5 text-sm">
-          <span className={cn("flex items-center gap-1 font-medium", trendStyles[metric.trend])}>
-            <TrendIcon className="size-3.5" />
-            {metric.changePercent > 0 && "+"}
-            {formatPercent(metric.changePercent)}
-          </span>
+          {hasTrend && TrendIcon && (
+            <span className={cn("flex items-center gap-1 font-medium", trendStyles[metric.trend!])}>
+              <TrendIcon className="size-3.5" />
+              {metric.changePercent! > 0 && "+"}
+              {formatPercent(metric.changePercent!)}
+            </span>
+          )}
           <span className="text-muted-foreground">{metric.comparisonLabel}</span>
         </div>
 

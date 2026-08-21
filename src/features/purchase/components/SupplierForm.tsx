@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -8,37 +9,39 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-import { supplierFormSchema, type SupplierFormValues } from "../schemas/supplier.schema"
-import { useCreateSupplier, useUpdateSupplier } from "../hooks/useSuppliers"
+import {
+  supplierFormSchema,
+  type SupplierFormInput,
+  type SupplierFormValues,
+} from "../schemas/supplier.schema"
+import { useCreateSupplier, useSupplierPaymentTerms, useUpdateSupplier } from "../hooks/useSuppliers"
 import type { Supplier } from "../types"
 
 type SupplierFormProps = {
   supplier?: Supplier
 }
 
-const typeOptions = [
-  { value: "manufacturer", label: "Manufacturer" },
-  { value: "wholesaler", label: "Wholesaler" },
-  { value: "distributor", label: "Distributor" },
-  { value: "agent", label: "Agent" },
-] as const
+const EMPTY_PAYMENT_TERM = "__none__"
 
-/** Multi-section supplier create/edit form: Basic Info, Contact Info, Business Info. */
+/** Supplier create/edit form aligned to the real backend contract. */
 export function SupplierForm({ supplier }: SupplierFormProps) {
   const router = useRouter()
   const isEditing = !!supplier
   const createSupplier = useCreateSupplier()
   const updateSupplier = useUpdateSupplier(supplier?.id ?? "")
+  const { data: paymentTerms } = useSupplierPaymentTerms()
 
-  const form = useForm<SupplierFormValues>({
+  const form = useForm<SupplierFormInput, unknown, SupplierFormValues>({
     resolver: zodResolver(supplierFormSchema),
     defaultValues: {
       name: supplier?.name ?? "",
@@ -48,15 +51,22 @@ export function SupplierForm({ supplier }: SupplierFormProps) {
       contactPerson: supplier?.contactPerson ?? "",
       phone: supplier?.phone ?? "",
       email: supplier?.email ?? "",
-      website: supplier?.website ?? "",
-      address: supplier?.address ?? "",
-      country: supplier?.country ?? "",
-      taxId: supplier?.taxId ?? "",
-      paymentTerms: supplier?.paymentTerms ?? "",
-      currency: supplier?.currency ?? "USD",
-      bankAccount: supplier?.bankAccount ?? "",
+      paymentTermId: supplier?.paymentTermId ?? "",
+      creditDays: supplier?.creditDays ?? 0,
+      openingBalanceAmount: (supplier?.openingBalance ?? 0).toFixed(2),
+      notes: supplier?.notes ?? "",
     },
   })
+
+  const paymentTermId = form.watch("paymentTermId")
+  const creditDays = form.watch("creditDays")
+  const selectedPaymentTerm = (paymentTerms ?? []).find((term) => term.id === paymentTermId)
+
+  useEffect(() => {
+    const nextCreditDays = selectedPaymentTerm ? selectedPaymentTerm.dueDays : 0
+    if (creditDays === nextCreditDays) return
+    form.setValue("creditDays", nextCreditDays, { shouldDirty: true })
+  }, [creditDays, form, selectedPaymentTerm])
 
   function onSubmit(values: SupplierFormValues) {
     const mutation = isEditing ? updateSupplier : createSupplier
@@ -80,7 +90,7 @@ export function SupplierForm({ supplier }: SupplierFormProps) {
                 <FormItem>
                   <FormLabel>Supplier Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g. Nike Apparel Co." {...field} />
+                    <Input placeholder="e.g. Jakarta Batik & Silk Studio" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -93,32 +103,22 @@ export function SupplierForm({ supplier }: SupplierFormProps) {
                 <FormItem>
                   <FormLabel>Supplier Code</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g. SUP-001" className="font-mono" {...field} />
+                    <Input
+                      placeholder="e.g. SUP-JAKARTA-BATIK"
+                      className="font-mono"
+                      disabled={isEditing}
+                      {...field}
+                      value={typeof field.value === "string" ? field.value : ""}
+                      onChange={(event) => field.onChange(event.target.value.toUpperCase())}
+                    />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Supplier Type</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {typeOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {isEditing ? (
+                    <FormDescription>Supplier code cannot be changed after creation.</FormDescription>
+                  ) : (
+                    <FormDescription>
+                      Optional. Leave blank to auto-generate. Use uppercase letters, numbers, - and _ only.
+                    </FormDescription>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -138,12 +138,21 @@ export function SupplierForm({ supplier }: SupplierFormProps) {
                     <SelectContent>
                       <SelectItem value="active">Active</SelectItem>
                       <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="blocked">Blocked</SelectItem>
                     </SelectContent>
                   </Select>
+                  <FormDescription>Status changes are applied through the backend activate/deactivate/block routes.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
+            <FormItem>
+              <FormLabel>Supplier Type</FormLabel>
+              <div className="flex h-10 items-center rounded-lg border bg-muted px-3 text-sm text-muted-foreground">
+                Manufacturer
+              </div>
+              <FormDescription>The current backend does not persist a custom supplier type.</FormDescription>
+            </FormItem>
           </CardContent>
         </Card>
 
@@ -182,50 +191,12 @@ export function SupplierForm({ supplier }: SupplierFormProps) {
               control={form.control}
               name="email"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="sm:col-span-2">
                   <FormLabel>Email</FormLabel>
                   <FormControl>
                     <Input type="email" placeholder="name@company.com" {...field} />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="website"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Website</FormLabel>
-                  <FormControl>
-                    <Input placeholder="https://…" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="address"
-              render={({ field }) => (
-                <FormItem className="sm:col-span-2">
-                  <FormLabel>Address</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Street, City" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="country"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Country</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Country" {...field} />
-                  </FormControl>
+                  <FormDescription>Leave empty if the supplier has no email address yet.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -235,56 +206,91 @@ export function SupplierForm({ supplier }: SupplierFormProps) {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Business Information</CardTitle>
+            <CardTitle className="text-base">Financial Information</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField
               control={form.control}
-              name="taxId"
+              name="paymentTermId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Tax ID</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Tax identification number" {...field} />
-                  </FormControl>
+                  <FormLabel>Payment Term</FormLabel>
+                  <Select
+                    value={field.value || EMPTY_PAYMENT_TERM}
+                    onValueChange={(value) => field.onChange(value === EMPTY_PAYMENT_TERM ? "" : value)}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select payment term" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value={EMPTY_PAYMENT_TERM}>No payment term</SelectItem>
+                      {(paymentTerms ?? []).map((term) => (
+                        <SelectItem key={term.id} value={term.id}>
+                          {term.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    {selectedPaymentTerm
+                      ? `Payment is due in ${selectedPaymentTerm.dueDays} day${selectedPaymentTerm.dueDays === 1 ? "" : "s"}.`
+                      : "Choose when payment becomes due for this supplier."}
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
             <FormField
               control={form.control}
-              name="paymentTerms"
+              name="creditDays"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Payment Terms</FormLabel>
+                  <FormLabel>Credit Days</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g. Net 30" {...field} />
+                    <Input
+                      type="number"
+                      min={0}
+                      max={3650}
+                      step={1}
+                      value={field.value}
+                      onChange={(event) => field.onChange(event.target.value)}
+                    />
                   </FormControl>
+                  <FormDescription>How many days this supplier extends payment to your company.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
             <FormField
               control={form.control}
-              name="currency"
+              name="openingBalanceAmount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Currency</FormLabel>
+                  <FormLabel>Opening Balance</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g. USD" {...field} />
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      placeholder="0.00"
+                      {...field}
+                    />
                   </FormControl>
+                  <FormDescription>Initial payable balance stored on the supplier master record.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
             <FormField
               control={form.control}
-              name="bankAccount"
+              name="notes"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Bank Account</FormLabel>
+                <FormItem className="sm:col-span-2">
+                  <FormLabel>Notes</FormLabel>
                   <FormControl>
-                    <Input placeholder="Account number" {...field} />
+                    <Textarea placeholder="Internal notes about this supplier..." {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

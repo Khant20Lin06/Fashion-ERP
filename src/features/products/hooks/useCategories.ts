@@ -1,12 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { createCategory, deleteCategory, fetchCategories, updateCategory } from "../api/category.api"
+import { toastApiError } from "@/lib/api/errors"
+import {
+  createCategory,
+  deleteCategory,
+  fetchCategories,
+  setCategoryStatus,
+  updateCategory,
+} from "../api/category.api"
 import type { CategoryFormValues } from "../schemas/product.schema"
 
 export function useCategories() {
   return useQuery({
     queryKey: ["categories"],
-    queryFn: fetchCategories,
+    queryFn: () => fetchCategories(),
   })
 }
 
@@ -18,7 +25,7 @@ export function useCreateCategory() {
       queryClient.invalidateQueries({ queryKey: ["categories"] })
       toast.success("Category created")
     },
-    onError: () => toast.error("Failed to create category"),
+    onError: (error) => toastApiError(error, "Failed to create category"),
   })
 }
 
@@ -30,7 +37,7 @@ export function useUpdateCategory(id: string) {
       queryClient.invalidateQueries({ queryKey: ["categories"] })
       toast.success("Category updated")
     },
-    onError: () => toast.error("Failed to update category"),
+    onError: (error) => toastApiError(error, "Failed to update category"),
   })
 }
 
@@ -42,6 +49,19 @@ export function useDeleteCategory() {
       queryClient.invalidateQueries({ queryKey: ["categories"] })
       toast.success("Category deleted")
     },
-    onError: () => toast.error("Failed to delete category"),
+    onError: (error) => toastApiError(error, "Failed to delete category"),
+  })
+}
+
+export function useSetCategoryStatus() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      setCategoryStatus(id, isActive),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] })
+      toast.success("Category status updated")
+    },
+    onError: (error) => toastApiError(error, "Failed to update category status"),
   })
 }

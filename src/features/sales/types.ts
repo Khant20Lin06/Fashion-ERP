@@ -79,6 +79,7 @@ export type SalesInvoice = {
   customerId: string
   customerName: string
   salesPerson: string
+  warehouseId?: string | null
   items: SalesLineItem[]
   subtotal: number
   discountTotal: number
@@ -87,14 +88,24 @@ export type SalesInvoice = {
   amountPaid: number
   paymentMethod: PaymentMethod
   paymentStatus: InvoicePaymentStatus
-  status: "open" | "closed" | "voided"
+  status: "DRAFT" | "CONFIRMED" | "CANCELLED"
+  /** True only when checkout's sale was confirmed but its Payment record
+   * could not be created (e.g. no PaymentMethod configured with a GL
+   * account) — the sale is real, its paidAmount just wasn't updated. */
+  paymentRecordingFailed?: boolean
 }
 
-export type ReturnType = "product_return" | "exchange" | "refund" | "store_credit"
-export type ReturnStatus = "requested" | "approved" | "processed" | "rejected"
+// Real backend SaleReturnStatus (erp-pos fashion api
+// src/modules/sales-returns) is DRAFT | CONFIRMED | CANCELLED — there is
+// no approve/reject/process workflow, and no refundMethod/exchange/
+// store_credit concept on the backend at all (see comment on SalesReturn
+// below).
+export type ReturnStatus = "draft" | "confirmed" | "refunded" | "cancelled"
+export type SalesReturnItemCondition = "RESTOCK" | "DAMAGED"
 
 export type SalesReturnItem = {
   id: string
+  saleItemId: string
   productId: string
   productName: string
   sku: string
@@ -103,35 +114,31 @@ export type SalesReturnItem = {
   purchasedQty: number
   returnQty: number
   unitPrice: number
+  discountAmount?: number
+  lineTotal?: number
+  condition?: SalesReturnItemCondition
 }
 
+// Mirrors the real backend row (SaleReturnResponseDto). There is no
+// ReturnType (product_return/exchange/refund/store_credit) or
+// refundMethod field on the backend — a return is just line items against
+// a sale with a reason, confirmed or cancelled; those UI concepts were
+// invented and are not sent/stored anywhere real.
 export type SalesReturn = {
   id: string
-  reference: string
-  invoiceId: string
+  returnNumber: string
+  saleId: string
   invoiceNumber: string
+  saleWarehouseId?: string | null
   customerId: string
   customerName: string
-  type: ReturnType
   reason: string
-  refundMethod: PaymentMethod | "store_credit"
   status: ReturnStatus
   items: SalesReturnItem[]
   refundAmount: number
+  refundedAmount: number
+  notes?: string
   createdAt: string
-}
-
-export type DiscountKind = "product" | "category" | "customer" | "campaign"
-
-export type DiscountRule = {
-  id: string
-  name: string
-  kind: DiscountKind
-  target: string
-  percent: number
-  isActive: boolean
-  startDate?: string
-  endDate?: string
 }
 
 export type LoyaltyTransaction = {
@@ -162,7 +169,6 @@ export type ProductPerformancePoint = {
   productName: string
   unitsSold: number
   revenue: number
-  profitMargin: number
 }
 
 export type CustomerAnalyticsSummary = {

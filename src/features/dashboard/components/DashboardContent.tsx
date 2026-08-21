@@ -41,7 +41,13 @@ export function DashboardContent() {
       <DashboardGreeting />
 
       {visibleWidgets.has("kpis") && (
-        <KPISection metrics={data?.kpis} isLoading={isLoading} visibleMetricIds={visibleKpiIds} />
+        <KPISection
+          metrics={data?.kpis}
+          isLoading={isLoading}
+          isError={isError}
+          onRetry={refetch}
+          visibleMetricIds={visibleKpiIds}
+        />
       )}
 
       {(visibleWidgets.has("salesOverview") || visibleWidgets.has("inventoryStatus")) && (
@@ -80,7 +86,13 @@ export function DashboardContent() {
       {(visibleWidgets.has("lowStockAlert") || visibleWidgets.has("customerAnalytics")) && (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           {visibleWidgets.has("lowStockAlert") && (
-            <LowStockAlert data={data?.lowStockItems} isLoading={isLoading} isError={isError} onRetry={refetch} />
+            <LowStockAlert
+              data={data?.lowStockItems}
+              isLoading={isLoading}
+              isError={isError}
+              onRetry={refetch}
+              unavailable={!isLoading && !isError}
+            />
           )}
           {visibleWidgets.has("customerAnalytics") && (
             <CustomerAnalyticsWidget

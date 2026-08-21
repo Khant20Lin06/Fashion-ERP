@@ -1,5 +1,6 @@
 import { apiClient } from "@/lib/api/client"
 import { env } from "@/config/env"
+import { resolveCompanyId } from "@/lib/api/resolve-company-id"
 import type {
   ActiveSession,
   AdminAuditEntry,
@@ -66,26 +67,58 @@ export async function fetchAuditEntries(filters?: AuditFilters): Promise<AdminAu
 }
 
 // --- Notifications ---
+// Real controller: @Controller('notifications') — NOT /admin/notifications.
+// DataScope-enforced (companyId required, same resolveCompanyId() pattern
+// as Employees/Settings). GET (list) + PATCH :id/read only — no POST (every
+// Notification is created exclusively by NotificationEventConsumer reacting
+// to a Kafka event, never via a client-facing endpoint) and no bulk
+// mark-all-read (only one-at-a-time exists on the backend).
+
+type BackendNotification = {
+  id: string
+  companyId: string
+  userId: string | null
+  eventType: string
+  channel: string
+  title: string
+  body: string
+  status: string
+  readAt: string | null
+  createdAt: string
+}
+
+function mapBackendToNotification(n: BackendNotification): AdminNotification {
+  return {
+    id: n.id,
+    eventType: n.eventType,
+    title: n.title,
+    body: n.body,
+    read: !!n.readAt,
+    readAt: n.readAt,
+    createdAt: n.createdAt,
+  }
+}
 
 export async function fetchNotifications(): Promise<AdminNotification[]> {
   if (USE_MOCK) return delay(mockNotifications)
-  const { data } = await apiClient.get<AdminNotification[]>("/admin/notifications")
-  return data
+  const companyId = await resolveCompanyId()
+  const { data } = await apiClient.get<{ data: BackendNotification[]; meta: unknown }>("/notifications", {
+    params: { companyId, limit: 100 },
+  })
+  return (data.data ?? []).map(mapBackendToNotification)
 }
 
 export async function markNotificationRead(id: string): Promise<AdminNotification> {
   if (USE_MOCK) {
     const existing = mockNotifications.find((n) => n.id === id)
     if (!existing) throw new Error("Notification not found")
-    return delay({ ...existing, read: true })
+    return delay({ ...existing, read: true, readAt: new Date().toISOString() })
   }
-  const { data } = await apiClient.patch<AdminNotification>(`/admin/notifications/${id}/read`)
-  return data
-}
-
-export async function markAllNotificationsRead(): Promise<void> {
-  if (USE_MOCK) return delay(undefined)
-  await apiClient.post("/admin/notifications/mark-all-read")
+  const companyId = await resolveCompanyId()
+  const { data } = await apiClient.patch<BackendNotification>(`/notifications/${id}/read`, undefined, {
+    params: { companyId },
+  })
+  return mapBackendToNotification(data)
 }
 
 // --- Security ---

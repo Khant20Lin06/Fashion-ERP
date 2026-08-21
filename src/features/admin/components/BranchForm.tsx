@@ -25,20 +25,13 @@ import { useCompanies, useCreateBranch, useUpdateBranch } from "../hooks/useRole
 import { branchFormSchema, type BranchFormValues } from "../schemas/role.schema"
 import type { Branch } from "../types"
 
-const typeOptions = [
-  { value: "head_office", label: "Head Office" },
-  { value: "retail_store", label: "Retail Store" },
-  { value: "warehouse", label: "Warehouse" },
-  { value: "outlet", label: "Outlet" },
-] as const
-
 type BranchFormDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   branch?: Branch
 }
 
-/** Create/edit dialog for a Branch — Name, Code, Company, Type, Address, Manager, Status. */
+/** Create/edit dialog for a Branch — Name, Code, Company, Status, Contact, Address. */
 export function BranchFormDialog({ open, onOpenChange, branch }: BranchFormDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -61,10 +54,10 @@ function BranchFormDialogContent({ onOpenChange, branch }: { onOpenChange: (open
       name: branch?.name ?? "",
       code: branch?.code ?? "",
       companyId: branch?.companyId ?? "",
-      type: branch?.type ?? "retail_store",
+      phone: branch?.phone ?? "",
+      email: branch?.email ?? "",
       address: branch?.address ?? "",
-      managerId: branch?.managerId ?? "",
-      warehouseId: branch?.warehouseId ?? "",
+      timezone: branch?.timezone ?? "",
       status: branch?.status ?? "active",
     },
   })
@@ -102,7 +95,7 @@ function BranchFormDialogContent({ onOpenChange, branch }: { onOpenChange: (open
                 <FormItem>
                   <FormLabel>Code</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g. RT-JS01" {...field} />
+                    <Input placeholder="e.g. RT-JS01" className="font-mono" {...field} disabled={isEditing} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -114,7 +107,7 @@ function BranchFormDialogContent({ onOpenChange, branch }: { onOpenChange: (open
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Company</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select value={field.value} onValueChange={field.onChange} disabled={isEditing}>
                     <FormControl>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select company" />
@@ -124,30 +117,6 @@ function BranchFormDialogContent({ onOpenChange, branch }: { onOpenChange: (open
                       {(companies ?? []).map((company) => (
                         <SelectItem key={company.id} value={company.id}>
                           {company.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Type</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {typeOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -173,6 +142,45 @@ function BranchFormDialogContent({ onOpenChange, branch }: { onOpenChange: (open
                       <SelectItem value="inactive">Inactive</SelectItem>
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input type="email" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="timezone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Timezone</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g. Asia/Yangon" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

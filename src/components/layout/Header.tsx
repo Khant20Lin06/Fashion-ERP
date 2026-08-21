@@ -17,6 +17,7 @@ import { useAuthStore } from "@/stores/auth.store"
 import { useLogout } from "@/features/auth/hooks/use-logout"
 import { NotificationDropdown } from "@/features/notifications/components/NotificationDropdown"
 import { SearchTrigger } from "@/features/search/components/SearchTrigger"
+import { AiAssistantTrigger } from "@/features/ai-assistant/components/AiAssistantTrigger"
 import { Breadcrumb } from "./Breadcrumb"
 
 function getInitials(name: string) {
@@ -62,6 +63,7 @@ export function Header() {
         <SearchTrigger />
       </div>
 
+      <AiAssistantTrigger />
       <NotificationDropdown />
 
       <DropdownMenu>

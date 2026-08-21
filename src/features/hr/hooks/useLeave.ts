@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { toastApiError } from "@/lib/api/errors"
 import {
   createLeaveRequest,
   fetchLeaveBalances,
@@ -34,7 +35,7 @@ export function useCreateLeaveRequest() {
       queryClient.invalidateQueries({ queryKey: ["hr", "leaves"] })
       toast.success("Leave request submitted")
     },
-    onError: () => toast.error("Failed to submit leave request"),
+    onError: (error) => toastApiError(error, "Failed to submit leave request"),
   })
 }
 
@@ -46,6 +47,6 @@ export function useUpdateLeaveRequestStatus() {
       queryClient.invalidateQueries({ queryKey: ["hr", "leaves"] })
       toast.success("Leave request updated")
     },
-    onError: () => toast.error("Failed to update leave request"),
+    onError: (error) => toastApiError(error, "Failed to update leave request"),
   })
 }

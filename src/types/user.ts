@@ -39,11 +39,13 @@ export type AuthUser = {
 
 export function hasPermission(
   user: AuthUser | null | undefined,
-  module: string,
+  module: string | string[],
   action: Permission["actions"][number]
 ): boolean {
   if (!user) return false
   if (user.role === "super_admin") return true
-  const modulePermission = user.permissions.find((p) => p.module === module || p.module === "*")
-  return modulePermission?.actions.includes(action) ?? false
+  const modules = Array.isArray(module) ? module : [module]
+  return user.permissions.some(
+    (p) => (p.module === "*" || modules.includes(p.module)) && p.actions.includes(action)
+  )
 }

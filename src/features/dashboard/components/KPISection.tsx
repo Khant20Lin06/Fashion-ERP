@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 import { KPICard, KPICardSkeleton } from "@/components/dashboard/KPICard"
 import { EmptyState } from "@/components/ui/empty-state"
+import { ErrorState } from "@/components/ui/error-state"
 import type { KpiMetric } from "../types"
 
 const iconByMetricId: Record<string, LucideIcon> = {
@@ -35,11 +36,13 @@ const iconByMetricId: Record<string, LucideIcon> = {
 type KPISectionProps = {
   metrics: KpiMetric[] | undefined
   isLoading: boolean
+  isError?: boolean
+  onRetry?: () => void
   visibleMetricIds?: string[]
 }
 
 /** Responsive KPI grid — the top row of the dashboard. */
-export function KPISection({ metrics, isLoading, visibleMetricIds }: KPISectionProps) {
+export function KPISection({ metrics, isLoading, isError, onRetry, visibleMetricIds }: KPISectionProps) {
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -49,6 +52,8 @@ export function KPISection({ metrics, isLoading, visibleMetricIds }: KPISectionP
       </div>
     )
   }
+
+  if (isError) return <ErrorState message="Couldn't load KPI metrics." onRetry={onRetry} />
 
   const filtered = visibleMetricIds
     ? metrics?.filter((m) => visibleMetricIds.includes(m.id))

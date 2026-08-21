@@ -55,6 +55,7 @@ export function GoodsReceiptForm({ onConfirmed }: { onConfirmed?: () => void }) 
     }
     replace(
       selectedOrder.items.map((item) => ({
+        purchaseOrderItemId: item.id,
         productId: item.productId,
         productName: item.productName,
         sku: item.sku,

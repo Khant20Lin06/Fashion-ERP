@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { toastApiError } from "@/lib/api/errors"
 import {
   createBranch,
   createCompany,
@@ -11,15 +12,9 @@ import {
   updateBranch,
   updateCompany,
   updateRole,
-} from "../api/roles.api"
-import {
-  fetchRolePermissions,
-  fetchUserPermissionOverrides,
-  setUserPermissionOverride,
   updateRolePermissions,
-} from "../api/permissions.api"
+} from "../api/roles.api"
 import type { BranchFormValues, CompanyFormValues, RoleFormValues } from "../schemas/role.schema"
-import type { PermissionAction, RolePermissions } from "../types"
 
 // --- Roles ---
 
@@ -35,7 +30,7 @@ export function useCreateRole() {
       queryClient.invalidateQueries({ queryKey: ["admin", "roles"] })
       toast.success("Role created")
     },
-    onError: () => toast.error("Failed to create role"),
+    onError: (error) => toastApiError(error, "Failed to create role"),
   })
 }
 
@@ -47,7 +42,7 @@ export function useUpdateRole(id: string) {
       queryClient.invalidateQueries({ queryKey: ["admin", "roles"] })
       toast.success("Role updated")
     },
-    onError: () => toast.error("Failed to update role"),
+    onError: (error) => toastApiError(error, "Failed to update role"),
   })
 }
 
@@ -59,50 +54,22 @@ export function useDeleteRole() {
       queryClient.invalidateQueries({ queryKey: ["admin", "roles"] })
       toast.success("Role deleted")
     },
-    onError: () => toast.error("Failed to delete role"),
+    onError: (error) => toastApiError(error, "Failed to delete role"),
   })
 }
 
-// --- Permissions ---
-
-export function useRolePermissions(roleId: string | undefined) {
-  return useQuery({
-    queryKey: ["admin", "permissions", "roles", roleId],
-    queryFn: () => fetchRolePermissions(roleId as string),
-    enabled: !!roleId,
-  })
-}
+// --- Role Permissions ---
+// Full-replace semantics, matching PUT /roles/:id/permissions exactly.
 
 export function useUpdateRolePermissions(roleId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (matrix: RolePermissions["matrix"]) => updateRolePermissions(roleId, matrix),
+    mutationFn: (permissionIds: string[]) => updateRolePermissions(roleId, permissionIds),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "permissions", "roles", roleId] })
+      queryClient.invalidateQueries({ queryKey: ["admin", "roles"] })
       toast.success("Permissions updated")
     },
-    onError: () => toast.error("Failed to update permissions"),
-  })
-}
-
-export function useUserPermissionOverrides(userId: string | undefined) {
-  return useQuery({
-    queryKey: ["admin", "permissions", "users", userId],
-    queryFn: () => fetchUserPermissionOverrides(userId as string),
-    enabled: !!userId,
-  })
-}
-
-export function useSetUserPermissionOverride(userId: string) {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ module, action, granted }: { module: string; action: PermissionAction; granted: boolean }) =>
-      setUserPermissionOverride(userId, module, action, granted),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "permissions", "users", userId] })
-      toast.success("Permission override saved")
-    },
-    onError: () => toast.error("Failed to save permission override"),
+    onError: (error) => toastApiError(error, "Failed to update permissions"),
   })
 }
 
@@ -120,7 +87,7 @@ export function useCreateCompany() {
       queryClient.invalidateQueries({ queryKey: ["admin", "companies"] })
       toast.success("Company created")
     },
-    onError: () => toast.error("Failed to create company"),
+    onError: (error) => toastApiError(error, "Failed to create company"),
   })
 }
 
@@ -132,7 +99,7 @@ export function useUpdateCompany(id: string) {
       queryClient.invalidateQueries({ queryKey: ["admin", "companies"] })
       toast.success("Company updated")
     },
-    onError: () => toast.error("Failed to update company"),
+    onError: (error) => toastApiError(error, "Failed to update company"),
   })
 }
 
@@ -150,7 +117,7 @@ export function useCreateBranch() {
       queryClient.invalidateQueries({ queryKey: ["admin", "branches"] })
       toast.success("Branch created")
     },
-    onError: () => toast.error("Failed to create branch"),
+    onError: (error) => toastApiError(error, "Failed to create branch"),
   })
 }
 
@@ -162,6 +129,6 @@ export function useUpdateBranch(id: string) {
       queryClient.invalidateQueries({ queryKey: ["admin", "branches"] })
       toast.success("Branch updated")
     },
-    onError: () => toast.error("Failed to update branch"),
+    onError: (error) => toastApiError(error, "Failed to update branch"),
   })
 }

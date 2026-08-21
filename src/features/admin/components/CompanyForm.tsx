@@ -50,10 +50,13 @@ function CompanyFormDialogContent({ onOpenChange, company }: { onOpenChange: (op
   const form = useForm<CompanyFormValues>({
     resolver: zodResolver(companyFormSchema),
     defaultValues: {
+      code: company?.code ?? "",
       name: company?.name ?? "",
-      taxId: company?.taxId ?? "",
-      currency: company?.currency ?? "USD",
-      fiscalYearStart: company?.fiscalYearStart ?? "01-01",
+      baseCurrency: company?.baseCurrency ?? "USD",
+      timezone: company?.timezone ?? "",
+      country: company?.country ?? "",
+      phone: company?.phone ?? "",
+      email: company?.email ?? "",
       address: company?.address ?? "",
       status: company?.status ?? "active",
     },
@@ -87,12 +90,12 @@ function CompanyFormDialogContent({ onOpenChange, company }: { onOpenChange: (op
           <div className="grid grid-cols-2 gap-4">
             <FormField
               control={form.control}
-              name="taxId"
+              name="code"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Tax ID</FormLabel>
+                  <FormLabel>Company Code</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <Input placeholder="e.g. MMFASHION" className="font-mono" {...field} disabled={isEditing} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -100,12 +103,12 @@ function CompanyFormDialogContent({ onOpenChange, company }: { onOpenChange: (op
             />
             <FormField
               control={form.control}
-              name="currency"
+              name="baseCurrency"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Currency</FormLabel>
+                  <FormLabel>Base Currency</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g. MMK" {...field} />
+                    <Input placeholder="e.g. MMK" className="uppercase" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -113,12 +116,12 @@ function CompanyFormDialogContent({ onOpenChange, company }: { onOpenChange: (op
             />
             <FormField
               control={form.control}
-              name="fiscalYearStart"
+              name="timezone"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Fiscal Year Start (MM-DD)</FormLabel>
+                  <FormLabel>Timezone</FormLabel>
                   <FormControl>
-                    <Input placeholder="04-01" {...field} />
+                    <Input placeholder="e.g. Asia/Yangon" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -141,6 +144,45 @@ function CompanyFormDialogContent({ onOpenChange, company }: { onOpenChange: (op
                       <SelectItem value="inactive">Inactive</SelectItem>
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="country"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Country</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input type="email" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

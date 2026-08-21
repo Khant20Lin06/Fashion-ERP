@@ -35,6 +35,7 @@ export const purchaseOrderItemSchema = z.object({
 
 export const purchaseOrderFormSchema = z.object({
   supplierId: z.string().min(1, "Supplier is required"),
+  paymentTermId: z.string().optional(),
   contact: z.string().optional(),
   paymentTerms: z.string().optional(),
   deliveryDate: z.string().min(1, "Delivery date is required"),

@@ -20,7 +20,8 @@ type CompanyListProps = {
   onEdit: (company: Company) => void
 }
 
-/** Multi-company list — parent group company with subsidiary companies indented beneath it. */
+/** Company list. No parent/subsidiary hierarchy exists on the real Company
+ * entity — companies are a flat, independent list. */
 export function CompanyList({ onEdit }: CompanyListProps) {
   const { data, isLoading, isError, refetch } = useCompanies()
 
@@ -40,14 +41,10 @@ export function CompanyList({ onEdit }: CompanyListProps) {
     return <EmptyState title="No companies found" description="Create your first company to get started." />
   }
 
-  const roots = data.filter((c) => !c.parentId)
-  const childrenOf = (id: string) => data.filter((c) => c.parentId === id)
-
-  function renderCompany(company: Company, depth: number) {
-    const children = childrenOf(company.id)
-    return (
-      <div key={company.id} style={{ marginLeft: depth * 24 }} className="flex flex-col gap-3">
-        <Card>
+  return (
+    <div className="flex flex-col gap-3">
+      {data.map((company) => (
+        <Card key={company.id}>
           <CardContent className="flex items-start gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
               <Building2 className="size-5" />
@@ -60,9 +57,9 @@ export function CompanyList({ onEdit }: CompanyListProps) {
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground">
-                Tax ID: {company.taxId} · Currency: {company.currency}
+                Code: {company.code} · Currency: {company.baseCurrency}
               </p>
-              <p className="text-xs text-muted-foreground">{company.address}</p>
+              {company.address && <p className="text-xs text-muted-foreground">{company.address}</p>}
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -78,10 +75,7 @@ export function CompanyList({ onEdit }: CompanyListProps) {
             </DropdownMenu>
           </CardContent>
         </Card>
-        {children.map((child) => renderCompany(child, depth + 1))}
-      </div>
-    )
-  }
-
-  return <div className="flex flex-col gap-3">{roots.map((root) => renderCompany(root, 0))}</div>
+      ))}
+    </div>
+  )
 }

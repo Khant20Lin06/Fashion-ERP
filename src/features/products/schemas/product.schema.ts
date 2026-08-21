@@ -1,5 +1,30 @@
 import { z } from "zod"
 
+const optionalCodeSchema = z.preprocess(
+  (value) => {
+    if (typeof value !== "string") return value
+    const normalized = value.trim().toUpperCase()
+    return normalized === "" ? undefined : normalized
+  },
+  z
+    .string()
+    .max(50)
+    .regex(/^[A-Z0-9_-]+$/, "Use uppercase letters, numbers, - and _ only")
+    .optional()
+)
+
+const optionalSwatchSchema = z.preprocess(
+  (value) => {
+    if (typeof value !== "string") return value
+    const normalized = value.trim().toUpperCase()
+    return normalized === "" ? undefined : normalized
+  },
+  z
+    .string()
+    .regex(/^#[0-9A-F]{6}$/, "Use a 6-digit hex color like #1A2B3C")
+    .optional()
+)
+
 export const basicInfoSchema = z.object({
   name: z.string().min(1, "Product name is required").max(200),
   type: z.enum(["simple", "variant"]),
@@ -43,7 +68,8 @@ export const variantSchema = z.object({
 
 export const productFormSchema = z.object({
   ...basicInfoSchema.shape,
-  sku: z.string().min(1, "SKU is required"),
+  // maps to initialVariant.sku on create (CreateProductVariantDto, backend max length 100)
+  sku: z.string().min(1, "SKU is required").max(100, "SKU must be 100 characters or fewer"),
   status: z.enum(["active", "draft", "archived"]),
   costPrice: z.number().min(0),
   sellingPrice: z.number().positive("Selling price must be positive"),
@@ -57,25 +83,30 @@ export type ProductFormValues = z.infer<typeof productFormSchema>
 export type VariantFormValues = z.infer<typeof variantSchema>
 
 export const categoryFormSchema = z.object({
+  code: optionalCodeSchema,
   name: z.string().min(1, "Category name is required"),
   parentId: z.string().nullable(),
   isActive: z.boolean(),
 })
 
-export type CategoryFormValues = z.infer<typeof categoryFormSchema>
+export type CategoryFormInput = z.input<typeof categoryFormSchema>
+export type CategoryFormValues = z.output<typeof categoryFormSchema>
 
 export const brandFormSchema = z.object({
+  code: optionalCodeSchema,
   name: z.string().min(1, "Brand name is required"),
   country: z.string().optional(),
   description: z.string().max(1000).optional(),
   isActive: z.boolean(),
 })
 
-export type BrandFormValues = z.infer<typeof brandFormSchema>
+export type BrandFormInput = z.input<typeof brandFormSchema>
+export type BrandFormValues = z.output<typeof brandFormSchema>
 
 export const attributeOptionFormSchema = z.object({
   value: z.string().min(1, "Value is required"),
-  swatch: z.string().optional(),
+  swatch: optionalSwatchSchema,
 })
 
-export type AttributeOptionFormValues = z.infer<typeof attributeOptionFormSchema>
+export type AttributeOptionFormInput = z.input<typeof attributeOptionFormSchema>
+export type AttributeOptionFormValues = z.output<typeof attributeOptionFormSchema>

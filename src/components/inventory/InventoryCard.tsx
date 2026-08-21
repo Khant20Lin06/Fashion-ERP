@@ -1,4 +1,3 @@
-import Image from "next/image"
 import { Package } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { formatNumber } from "@/lib/format"
@@ -9,21 +8,15 @@ type InventoryCardProps = {
   item: InventoryItem
 }
 
-/** Compact inventory item card for grid views and the barcode scanner result panel. */
+/** Compact inventory item card for grid views and the barcode scanner result panel. No product image field exists on the backend, so this always shows a placeholder icon. */
 export function InventoryCard({ item }: InventoryCardProps) {
-  const status = deriveStockStatus(item.availableQty, item.reorderLevel, item.overstockLevel)
+  const status = deriveStockStatus(item.availableQty)
 
   return (
     <Card className="py-4">
       <CardContent className="flex items-start gap-3 px-4">
-        <div className="relative size-14 shrink-0 overflow-hidden rounded-md bg-muted">
-          {item.imageUrl ? (
-            <Image src={item.imageUrl} alt={item.productName} fill className="object-cover" unoptimized />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center">
-              <Package className="size-5 text-muted-foreground" />
-            </div>
-          )}
+        <div className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
+          <Package className="size-5 text-muted-foreground" />
         </div>
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex items-start justify-between gap-2">

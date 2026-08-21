@@ -1,66 +1,63 @@
 "use client"
 
-import { Card, CardContent } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
+import { useState } from "react"
+import { Plus } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { PayrollEntryForm } from "@/features/hr/components/PayrollEntryForm"
-import { PayrollTable } from "@/features/hr/components/PayrollTable"
-import { usePayrollDashboardMetrics } from "@/features/hr/hooks/usePayroll"
-import { formatCurrency } from "@/lib/format"
+import { PayrollPeriodTable } from "@/features/payroll/components/PayrollPeriodTable"
+import { PayrollPeriodFormDialog } from "@/features/payroll/components/PayrollPeriodForm"
+import { PayrollRunTable } from "@/features/payroll/components/PayrollRunTable"
+import { PayrollComponentTable } from "@/features/payroll/components/PayrollComponentTable"
+import { PayrollComponentFormDialog } from "@/features/payroll/components/PayrollComponentForm"
+import { PayrollConfigurationForm } from "@/features/payroll/components/PayrollConfigurationForm"
 
 export default function PayrollPage() {
-  const { data: metrics, isLoading } = usePayrollDashboardMetrics()
+  const [periodFormOpen, setPeriodFormOpen] = useState(false)
+  const [componentFormOpen, setComponentFormOpen] = useState(false)
 
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Payroll Preparation</h1>
-        <p className="text-sm text-muted-foreground">Calculate and process employee salaries.</p>
+        <h1 className="text-2xl font-semibold tracking-tight">Payroll</h1>
+        <p className="text-sm text-muted-foreground">
+          Payroll periods, runs, earning/deduction components, and configuration.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {isLoading || !metrics ? (
-          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)
-        ) : (
-          <>
-            <Card className="py-4">
-              <CardContent className="px-4">
-                <p className="text-xs text-muted-foreground">Total Salary</p>
-                <p className="text-xl font-semibold">{formatCurrency(metrics.totalSalary)}</p>
-              </CardContent>
-            </Card>
-            <Card className="py-4">
-              <CardContent className="px-4">
-                <p className="text-xs text-muted-foreground">Processed Payroll</p>
-                <p className="text-xl font-semibold text-success">{formatCurrency(metrics.processedPayroll)}</p>
-              </CardContent>
-            </Card>
-            <Card className="py-4">
-              <CardContent className="px-4">
-                <p className="text-xs text-muted-foreground">Pending Payroll</p>
-                <p className="text-xl font-semibold text-warning">{formatCurrency(metrics.pendingPayroll)}</p>
-              </CardContent>
-            </Card>
-            <Card className="py-4">
-              <CardContent className="px-4">
-                <p className="text-xs text-muted-foreground">Tax Deduction</p>
-                <p className="text-xl font-semibold">{formatCurrency(metrics.taxDeduction)}</p>
-              </CardContent>
-            </Card>
-          </>
-        )}
-      </div>
-
-      <Tabs defaultValue="list">
+      <Tabs defaultValue="periods">
         <TabsList>
-          <TabsTrigger value="list">Payroll</TabsTrigger>
-          <TabsTrigger value="new">New Entry</TabsTrigger>
+          <TabsTrigger value="periods">Periods</TabsTrigger>
+          <TabsTrigger value="runs">Runs</TabsTrigger>
+          <TabsTrigger value="components">Components</TabsTrigger>
+          <TabsTrigger value="configuration">Configuration</TabsTrigger>
         </TabsList>
-        <TabsContent value="list" className="mt-4">
-          <PayrollTable />
+
+        <TabsContent value="periods" className="mt-4 flex flex-col gap-4">
+          <div className="flex justify-end">
+            <Button onClick={() => setPeriodFormOpen(true)}>
+              <Plus /> New Period
+            </Button>
+          </div>
+          <PayrollPeriodTable />
+          <PayrollPeriodFormDialog open={periodFormOpen} onOpenChange={setPeriodFormOpen} />
         </TabsContent>
-        <TabsContent value="new" className="mt-4">
-          <PayrollEntryForm />
+
+        <TabsContent value="runs" className="mt-4">
+          <PayrollRunTable />
+        </TabsContent>
+
+        <TabsContent value="components" className="mt-4 flex flex-col gap-4">
+          <div className="flex justify-end">
+            <Button onClick={() => setComponentFormOpen(true)}>
+              <Plus /> New Component
+            </Button>
+          </div>
+          <PayrollComponentTable />
+          <PayrollComponentFormDialog open={componentFormOpen} onOpenChange={setComponentFormOpen} />
+        </TabsContent>
+
+        <TabsContent value="configuration" className="mt-4">
+          <PayrollConfigurationForm />
         </TabsContent>
       </Tabs>
     </div>

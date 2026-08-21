@@ -1,9 +1,9 @@
 import type { LucideIcon } from "lucide-react"
-import { AlertTriangle, DollarSign, PackageX, Warehouse } from "lucide-react"
+import { PackageX, Warehouse } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import { formatCurrency, formatNumber } from "@/lib/format"
+import { formatNumber } from "@/lib/format"
 import type { InventoryKpis } from "../types"
 
 type KpiTileProps = {
@@ -61,8 +61,8 @@ type InventoryKpiSectionProps = {
 export function InventoryKpiSection({ kpis, isLoading }: InventoryKpiSectionProps) {
   if (isLoading || !kpis) {
     return (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {Array.from({ length: 2 }).map((_, i) => (
           <KpiTileSkeleton key={i} />
         ))}
       </div>
@@ -70,27 +70,13 @@ export function InventoryKpiSection({ kpis, isLoading }: InventoryKpiSectionProp
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <KpiTile
-        label="Total Inventory Value"
-        value={formatCurrency(kpis.totalInventoryValue)}
-        helper="Current stock valuation"
-        icon={DollarSign}
-        tone="default"
-      />
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <KpiTile
         label="Total Products"
         value={formatNumber(kpis.totalProducts)}
-        helper="Active SKUs"
+        helper="Distinct SKUs in stock"
         icon={Warehouse}
         tone="default"
-      />
-      <KpiTile
-        label="Low Stock Items"
-        value={formatNumber(kpis.lowStockItems)}
-        helper="Need replenishment"
-        icon={AlertTriangle}
-        tone="warning"
       />
       <KpiTile
         label="Out of Stock"

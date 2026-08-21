@@ -4,6 +4,7 @@ import { CheckCircle2, Circle, Star } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
+import { ErrorState } from "@/components/ui/error-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import { usePerformanceReviews } from "../hooks/usePayroll"
 
@@ -15,9 +16,12 @@ const periodLabel: Record<string, string> = {
   annual: "Annual",
 }
 
-/** Performance review list — Goals, Rating, and Manager Feedback per employee. */
+/** Performance review list — Goals, Rating, and Manager Feedback per employee.
+ * No backend Performance module exists (BACKEND GAP) — every real-mode
+ * request will fail, so isError is surfaced rather than falling through to
+ * a silent "no reviews yet" empty state. */
 export function PerformanceReviewList() {
-  const { data: reviews, isLoading } = usePerformanceReviews()
+  const { data: reviews, isLoading, isError, refetch } = usePerformanceReviews()
 
   if (isLoading) {
     return (
@@ -28,6 +32,8 @@ export function PerformanceReviewList() {
       </div>
     )
   }
+
+  if (isError) return <ErrorState message="Couldn't load performance reviews." onRetry={refetch} />
 
   if (!reviews || reviews.length === 0) {
     return <EmptyState title="No performance reviews" description="Reviews will appear here once submitted." />

@@ -20,7 +20,11 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { useCreateAttributeOption, useUpdateAttributeOption } from "../hooks/useAttributes"
-import { attributeOptionFormSchema, type AttributeOptionFormValues } from "../schemas/product.schema"
+import {
+  attributeOptionFormSchema,
+  type AttributeOptionFormInput,
+  type AttributeOptionFormValues,
+} from "../schemas/product.schema"
 import type { AttributeKind, AttributeOption } from "../types"
 
 type AttributeOptionFormDialogProps = {
@@ -68,7 +72,7 @@ function AttributeOptionFormDialogContent({
   const createOption = useCreateAttributeOption(kind)
   const updateOption = useUpdateAttributeOption(option?.id ?? "", kind)
 
-  const form = useForm<AttributeOptionFormValues>({
+  const form = useForm<AttributeOptionFormInput, unknown, AttributeOptionFormValues>({
     resolver: zodResolver(attributeOptionFormSchema),
     defaultValues: {
       value: option?.value ?? "",
@@ -110,8 +114,17 @@ function AttributeOptionFormDialogContent({
                   <FormLabel>Swatch Color</FormLabel>
                   <FormControl>
                     <div className="flex items-center gap-2">
-                      <Input type="color" className="h-9 w-14 p-1" value={field.value || "#000000"} onChange={field.onChange} />
-                      <Input placeholder="#000000" value={field.value ?? ""} onChange={field.onChange} />
+                      <Input
+                        type="color"
+                        className="h-9 w-14 p-1"
+                        value={typeof field.value === "string" && field.value ? field.value : "#000000"}
+                        onChange={field.onChange}
+                      />
+                      <Input
+                        placeholder="#000000"
+                        value={typeof field.value === "string" ? field.value : ""}
+                        onChange={field.onChange}
+                      />
                     </div>
                   </FormControl>
                   <FormMessage />

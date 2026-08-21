@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { toastApiError } from "@/lib/api/errors"
 import {
   createBackup,
   fetchBackupRecords,
@@ -20,7 +21,6 @@ import {
   fetchNotifications,
   fetchSecurityEvents,
   fetchSystemActivity,
-  markAllNotificationsRead,
   markNotificationRead,
   revokeSession,
 } from "../api/audit.api"
@@ -61,7 +61,7 @@ export function useUpdateGeneralSettings() {
       queryClient.invalidateQueries({ queryKey: ["admin", "settings", "general"] })
       toast.success("General settings saved")
     },
-    onError: () => toast.error("Failed to save general settings"),
+    onError: (error) => toastApiError(error, "Failed to save general settings"),
   })
 }
 
@@ -77,7 +77,7 @@ export function useUpdateLocalizationSettings() {
       queryClient.invalidateQueries({ queryKey: ["admin", "settings", "localization"] })
       toast.success("Localization settings saved")
     },
-    onError: () => toast.error("Failed to save localization settings"),
+    onError: (error) => toastApiError(error, "Failed to save localization settings"),
   })
 }
 
@@ -95,7 +95,7 @@ export function useCreateBackup() {
       queryClient.invalidateQueries({ queryKey: ["admin", "settings", "backups"] })
       toast.success("Backup created")
     },
-    onError: () => toast.error("Failed to create backup"),
+    onError: (error) => toastApiError(error, "Failed to create backup"),
   })
 }
 
@@ -103,7 +103,7 @@ export function useRestoreBackup() {
   return useMutation({
     mutationFn: (id: string) => restoreBackup(id),
     onSuccess: () => toast.success("Backup restored"),
-    onError: () => toast.error("Failed to restore backup"),
+    onError: (error) => toastApiError(error, "Failed to restore backup"),
   })
 }
 
@@ -111,7 +111,7 @@ export function useUpdateBackupSchedule() {
   return useMutation({
     mutationFn: (schedule: BackupSchedule) => updateBackupSchedule(schedule),
     onSuccess: () => toast.success("Backup schedule updated"),
-    onError: () => toast.error("Failed to update backup schedule"),
+    onError: (error) => toastApiError(error, "Failed to update backup schedule"),
   })
 }
 
@@ -129,7 +129,7 @@ export function useUpdateSecuritySettings() {
       queryClient.invalidateQueries({ queryKey: ["admin", "security", "settings"] })
       toast.success("Security settings saved")
     },
-    onError: () => toast.error("Failed to save security settings"),
+    onError: (error) => toastApiError(error, "Failed to save security settings"),
   })
 }
 
@@ -149,7 +149,7 @@ export function useRevokeSession() {
       queryClient.invalidateQueries({ queryKey: ["admin", "security", "sessions"] })
       toast.success("Session revoked")
     },
-    onError: () => toast.error("Failed to revoke session"),
+    onError: (error) => toastApiError(error, "Failed to revoke session"),
   })
 }
 
@@ -176,17 +176,6 @@ export function useMarkNotificationRead() {
   })
 }
 
-export function useMarkAllNotificationsRead() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: () => markAllNotificationsRead(),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "notifications"] })
-      toast.success("All notifications marked as read")
-    },
-  })
-}
-
 // --- Integrations ---
 
 export function useIntegrations() {
@@ -202,7 +191,7 @@ export function useUpdateIntegration() {
       queryClient.invalidateQueries({ queryKey: ["admin", "integrations"] })
       toast.success("Integration configured")
     },
-    onError: () => toast.error("Failed to configure integration"),
+    onError: (error) => toastApiError(error, "Failed to configure integration"),
   })
 }
 
@@ -225,6 +214,6 @@ export function useSyncIntegration() {
       queryClient.invalidateQueries({ queryKey: ["admin", "integrations"] })
       toast.success("Integration synced")
     },
-    onError: () => toast.error("Failed to sync integration"),
+    onError: (error) => toastApiError(error, "Failed to sync integration"),
   })
 }

@@ -1,11 +1,19 @@
+import { redirect } from "next/navigation"
 import { LoginForm } from "@/features/auth"
+import { getOptionalSession } from "@/features/auth/api/dal"
 import { BarChart3 } from "lucide-react"
 
 export const metadata = {
   title: "Sign In · Fashion ERP/POS",
 }
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const session = await getOptionalSession()
+
+  if (session?.userId) {
+    redirect("/dashboard")
+  }
+
   return (
     <div className="grid min-h-svh lg:grid-cols-2">
       {/* Left branding section */}

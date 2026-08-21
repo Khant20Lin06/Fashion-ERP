@@ -20,7 +20,7 @@ import {
 } from "@/components/data-table"
 import { formatCurrency, formatNumber } from "@/lib/format"
 import { useProducts } from "../hooks/useProducts"
-import { useDeleteProduct } from "../hooks/useProductMutation"
+import { useDeleteProduct, useUpdateProductStatus } from "../hooks/useProductMutation"
 import { useCategories } from "../hooks/useCategories"
 import { useBrands } from "../hooks/useBrands"
 import { useProductStore } from "../stores/product.store"
@@ -131,6 +131,7 @@ export function ProductTable() {
   const { data: categories } = useCategories()
   const { data: brands } = useBrands()
   const { mutate: deleteProduct } = useDeleteProduct()
+  const { mutate: updateStatus } = useUpdateProductStatus()
   const { filters, setFilter, resetFilters } = useProductStore()
 
   const filteredData = useMemo(() => {
@@ -158,11 +159,18 @@ export function ProductTable() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => router.push(`/dashboard/products/${row.original.id}`)}>
+              <DropdownMenuItem onClick={() => router.push(`/dashboard/products/${row.original.id}/edit`)}>
                 <Pencil /> Edit
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Archive /> Archive
+              <DropdownMenuItem
+                onClick={() =>
+                  updateStatus({
+                    id: row.original.id,
+                    status: row.original.status === "active" ? "archived" : "active",
+                  })
+                }
+              >
+                <Archive /> {row.original.status === "active" ? "Archive" : "Activate"}
               </DropdownMenuItem>
               <DropdownMenuItem variant="destructive" onClick={() => deleteProduct(row.original.id)}>
                 <Trash2 /> Delete
@@ -172,7 +180,7 @@ export function ProductTable() {
         ),
       },
     ],
-    [router, deleteProduct]
+    [router, deleteProduct, updateStatus]
   )
 
   return (
@@ -199,7 +207,6 @@ export function ProductTable() {
           label: "Status",
           options: [
             { label: "Active", value: "active" },
-            { label: "Draft", value: "draft" },
             { label: "Archived", value: "archived" },
           ],
         },
@@ -222,7 +229,11 @@ export function ProductTable() {
       }}
       enableRowSelection
       bulkActions={[
-        { label: "Archive", icon: Archive, onAction: () => {} },
+        {
+          label: "Archive",
+          icon: Archive,
+          onAction: (rows) => rows.forEach((row) => updateStatus({ id: row.id, status: "archived" })),
+        },
         {
           label: "Delete",
           icon: Trash2,

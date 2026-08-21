@@ -31,7 +31,17 @@ type WarehouseFormDialogProps = {
   warehouse?: Warehouse
 }
 
-/** Create/edit dialog for a warehouse — name, code, branch, address, manager, contact, status. */
+const warehouseTypeOptions = [
+  { value: "MAIN", label: "Main" },
+  { value: "STORE", label: "Store" },
+  { value: "DISTRIBUTION", label: "Distribution" },
+  { value: "TRANSIT", label: "Transit" },
+  { value: "RETURN", label: "Return" },
+  { value: "VIRTUAL", label: "Virtual" },
+  { value: "OTHER", label: "Other" },
+] as const
+
+/** Create/edit dialog for a warehouse — name, code, type, branch, address, status. */
 export function WarehouseFormDialog({ open, onOpenChange, warehouse }: WarehouseFormDialogProps) {
   const { data: branches } = useBranches()
   const createWarehouse = useCreateWarehouse()
@@ -42,10 +52,9 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
     defaultValues: {
       name: warehouse?.name ?? "",
       code: warehouse?.code ?? "",
+      type: warehouse?.type ?? "STORE",
       branchId: warehouse?.branchId ?? "",
       address: warehouse?.address ?? "",
-      manager: warehouse?.manager ?? "",
-      contact: warehouse?.contact ?? "",
       status: warehouse?.status ?? "active",
     },
   })
@@ -55,10 +64,9 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
       form.reset({
         name: warehouse?.name ?? "",
         code: warehouse?.code ?? "",
+        type: warehouse?.type ?? "STORE",
         branchId: warehouse?.branchId ?? "",
         address: warehouse?.address ?? "",
-        manager: warehouse?.manager ?? "",
-        contact: warehouse?.contact ?? "",
         status: warehouse?.status ?? "active",
       })
     }
@@ -99,8 +107,14 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
                 <FormItem>
                   <FormLabel>Code</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g. YGN-01" className="font-mono" {...field} />
+                    <Input
+                      placeholder="e.g. YGN-01"
+                      className="font-mono"
+                      disabled={isEditing}
+                      {...field}
+                    />
                   </FormControl>
+                  {isEditing ? <p className="text-xs text-muted-foreground">Warehouse code cannot be changed after creation.</p> : null}
                   <FormMessage />
                 </FormItem>
               )}
@@ -112,7 +126,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Branch</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select value={field.value} onValueChange={field.onChange} disabled={isEditing}>
                     <FormControl>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select branch" />
@@ -122,6 +136,32 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
                       {(branches ?? []).map((b) => (
                         <SelectItem key={b.id} value={b.id}>
                           {b.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {isEditing ? <p className="text-xs text-muted-foreground">Warehouse branch cannot be changed after creation.</p> : null}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Warehouse Type</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select warehouse type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {warehouseTypeOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -144,35 +184,6 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
                 </FormItem>
               )}
             />
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="manager"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Manager</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Manager name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="contact"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Contact</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Phone number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
 
             <FormField
               control={form.control}

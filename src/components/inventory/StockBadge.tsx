@@ -3,24 +3,23 @@ import type { StockStatus } from "@/features/inventory/types"
 
 const statusConfig: Record<StockStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; className?: string }> = {
   available: { label: "Available", variant: "default" },
-  low_stock: { label: "Low Stock", variant: "outline", className: "border-warning text-warning" },
   out_of_stock: { label: "Out of Stock", variant: "destructive" },
-  over_stock: { label: "Over Stock", variant: "secondary" },
-  reserved: { label: "Reserved", variant: "outline" },
 }
 
-export function deriveStockStatus(availableQty: number, reorderLevel: number, overstockLevel: number): StockStatus {
-  if (availableQty === 0) return "out_of_stock"
-  if (availableQty <= reorderLevel) return "low_stock"
-  if (availableQty >= overstockLevel) return "over_stock"
-  return "available"
+// Only "available" / "out_of_stock" are derivable from real backend data.
+// No reorder-level or overstock-level field exists anywhere in the schema
+// (see erp-pos fashion api WarehouseStockEntity) — a "low stock"/"over
+// stock" threshold would be a fabricated business rule, so those statuses
+// were removed rather than backed by an invented number.
+export function deriveStockStatus(availableQty: number): StockStatus {
+  return availableQty === 0 ? "out_of_stock" : "available"
 }
 
 type StockBadgeProps = {
   status: StockStatus
 }
 
-/** Badge for inventory stock status — Available / Low Stock / Out of Stock / Over Stock / Reserved. */
+/** Badge for inventory stock status — Available / Out of Stock. */
 export function StockBadge({ status }: StockBadgeProps) {
   const config = statusConfig[status]
   return (

@@ -1,13 +1,12 @@
 "use client"
 
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
+import { useState } from "react"
 import Link from "next/link"
-import { Loader2 } from "lucide-react"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { Eye, EyeOff, Loader2 } from "lucide-react"
+import { useForm } from "react-hook-form"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import {
   Form,
   FormControl,
@@ -16,11 +15,14 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-import { loginSchema, type LoginFormValues } from "../schemas/login.schema"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { useLogin } from "../hooks/use-login"
+import { loginSchema, type LoginFormValues } from "../schemas/login.schema"
 
 export function LoginForm() {
   const login = useLogin()
+  const [showPassword, setShowPassword] = useState(false)
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -61,13 +63,27 @@ export function LoginForm() {
             <FormItem>
               <FormLabel>Password</FormLabel>
               <FormControl>
-                <Input
-                  type="password"
-                  placeholder="••••••••"
-                  autoComplete="current-password"
-                  disabled={login.isPending}
-                  {...field}
-                />
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Password"
+                    autoComplete="current-password"
+                    disabled={login.isPending}
+                    className="pr-10"
+                    {...field}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 size-6 -translate-y-1/2 text-muted-foreground"
+                    onClick={() => setShowPassword((value) => !value)}
+                    disabled={login.isPending}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </Button>
+                </div>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -99,7 +115,7 @@ export function LoginForm() {
           {login.isPending ? (
             <>
               <Loader2 className="animate-spin" />
-              Signing in…
+              Signing in...
             </>
           ) : (
             "Sign In"

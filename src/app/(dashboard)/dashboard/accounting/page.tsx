@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { FinanceCard, FinanceCardSkeleton } from "@/components/accounting/FinanceCard"
+import { FeatureUnavailable } from "@/components/feature-gate/FeatureUnavailable"
 import { DollarSign, TrendingDown, TrendingUp, Wallet } from "lucide-react"
 import { IncomeExpenseChart } from "@/features/accounting/components/IncomeExpenseChart"
 import { ReceivablePayableCard } from "@/features/accounting/components/ReceivablePayableCard"
@@ -10,8 +11,8 @@ import { useFinanceKpis, useIncomeVsExpense } from "@/features/accounting/hooks/
 import { formatCurrency, formatPercent } from "@/lib/format"
 
 export default function FinanceDashboardPage() {
-  const { data: kpis, isLoading: loadingKpis } = useFinanceKpis()
-  const { data: trend } = useIncomeVsExpense()
+  const { data: kpis, isLoading: loadingKpis, isError: kpisError } = useFinanceKpis()
+  const { data: trend, isError: trendError } = useIncomeVsExpense()
 
   return (
     <div className="flex flex-col gap-6">
@@ -20,33 +21,42 @@ export default function FinanceDashboardPage() {
         <p className="text-sm text-muted-foreground">Revenue, expenses, profit, and cash position.</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {loadingKpis || !kpis ? (
-          Array.from({ length: 4 }).map((_, i) => <FinanceCardSkeleton key={i} />)
-        ) : (
-          <>
-            <FinanceCard label="Total Revenue" value={formatCurrency(kpis.totalRevenue)} helper="This Year" icon={DollarSign} />
-            <FinanceCard label="Total Expenses" value={formatCurrency(kpis.totalExpenses)} icon={TrendingDown} tone="warning" />
-            <FinanceCard
-              label="Net Profit"
-              value={formatCurrency(kpis.netProfit)}
-              helper={`${formatPercent(kpis.netMarginPercent)} Margin`}
-              icon={TrendingUp}
-              tone="success"
-            />
-            <FinanceCard label="Cash Balance" value={formatCurrency(kpis.cashBalance)} icon={Wallet} />
-          </>
-        )}
-      </div>
+      {kpisError ? (
+        <FeatureUnavailable
+          title="Finance KPIs not available"
+          description="No backend accounting KPI-aggregate endpoint exists yet."
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {loadingKpis || !kpis ? (
+            Array.from({ length: 4 }).map((_, i) => <FinanceCardSkeleton key={i} />)
+          ) : (
+            <>
+              <FinanceCard label="Total Revenue" value={formatCurrency(kpis.totalRevenue)} helper="This Year" icon={DollarSign} />
+              <FinanceCard label="Total Expenses" value={formatCurrency(kpis.totalExpenses)} icon={TrendingDown} tone="warning" />
+              <FinanceCard
+                label="Net Profit"
+                value={formatCurrency(kpis.netProfit)}
+                helper={`${formatPercent(kpis.netMarginPercent)} Margin`}
+                icon={TrendingUp}
+                tone="success"
+              />
+              <FinanceCard label="Cash Balance" value={formatCurrency(kpis.cashBalance)} icon={Wallet} />
+            </>
+          )}
+        </div>
+      )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Income vs Expense</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <IncomeExpenseChart data={trend ?? []} />
-        </CardContent>
-      </Card>
+      {!trendError && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Income vs Expense</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <IncomeExpenseChart data={trend ?? []} />
+          </CardContent>
+        </Card>
+      )}
 
       <ReceivablePayableCard />
 

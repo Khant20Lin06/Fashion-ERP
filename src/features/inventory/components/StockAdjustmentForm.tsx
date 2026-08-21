@@ -55,9 +55,17 @@ export function StockAdjustmentForm({ onSubmitted }: { onSubmitted?: () => void 
   const currentQty = form.watch("currentQty")
   const difference = adjustedQty - currentQty
 
-  function handleProductChange(productId: string) {
-    const item = itemsInWarehouse.find((i) => i.productId === productId)
-    form.setValue("productId", productId)
+  // The backend's stock-adjustments endpoint requires a ProductVariant id
+  // — InventoryItem.productVariantId is exactly that (see
+  // features/inventory/api/inventory.api.ts), unique per (warehouse,
+  // variant) row even across multiple color/size variants of one product.
+  function resolvedVariantId(item: (typeof itemsInWarehouse)[number]) {
+    return item.productVariantId
+  }
+
+  function handleProductChange(selectedId: string) {
+    const item = itemsInWarehouse.find((i) => resolvedVariantId(i) === selectedId)
+    form.setValue("productId", selectedId)
     form.setValue("currentQty", item?.availableQty ?? 0)
     form.setValue("adjustedQty", item?.availableQty ?? 0)
   }
@@ -125,9 +133,10 @@ export function StockAdjustmentForm({ onSubmitted }: { onSubmitted?: () => void 
                     </FormControl>
                     <SelectContent>
                       {itemsInWarehouse.map((item) => (
-                        <SelectItem key={item.id} value={item.productId}>
+                        <SelectItem key={item.id} value={resolvedVariantId(item)}>
                           {item.productName}
                           {item.color || item.size ? ` (${[item.color, item.size].filter(Boolean).join(" / ")})` : ""}
+                          {item.sku ? ` - ${item.sku}` : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -200,7 +209,7 @@ export function StockAdjustmentForm({ onSubmitted }: { onSubmitted?: () => void 
                 <FormItem className="sm:col-span-2">
                   <FormLabel>Reason</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Explain the reason for this adjustment…" rows={2} {...field} />
+                    <Textarea placeholder="Explain the reason for this adjustment..." rows={2} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -214,7 +223,7 @@ export function StockAdjustmentForm({ onSubmitted }: { onSubmitted?: () => void 
                 <FormItem className="sm:col-span-2">
                   <FormLabel>Notes (optional)</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Additional notes…" rows={2} {...field} />
+                    <Textarea placeholder="Additional notes..." rows={2} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

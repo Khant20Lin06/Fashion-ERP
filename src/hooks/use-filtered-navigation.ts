@@ -7,6 +7,14 @@ import type { NavItem } from "@/types/navigation"
 
 function filterTree(items: NavItem[], check: (item: NavItem) => boolean): NavItem[] {
   return items.reduce<NavItem[]>((acc, item) => {
+    // BACKEND GAP routes never appear in navigation, regardless of
+    // permission — see src/config/release-scope.ts. "partial" and "ready"
+    // (the default) both remain visible: hiding a partial page would throw
+    // away its real, working sections.
+    if (item.releaseStatus === "backend-gap" || item.releaseStatus === "out-of-scope") {
+      return acc
+    }
+
     const children = item.children ? filterTree(item.children, check) : undefined
     const isVisible = item.module ? check(item) : true
     const hasVisibleChildren = children && children.length > 0

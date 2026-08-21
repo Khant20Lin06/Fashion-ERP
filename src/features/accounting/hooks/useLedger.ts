@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { toastApiError } from "@/lib/api/errors"
 import {
   createJournalEntry,
   fetchAuditEntries,
@@ -10,6 +11,7 @@ import {
   fetchJournalEntries,
   fetchLedgerEntries,
   fetchProfitAndLoss,
+  fetchTrialBalance,
   updateJournalEntryStatus,
 } from "../api/ledger.api"
 import type { JournalEntryFormValues } from "../schemas/journal.schema"
@@ -29,7 +31,7 @@ export function useCreateJournalEntry() {
       queryClient.invalidateQueries({ queryKey: ["accounting", "journal"] })
       toast.success("Journal entry created")
     },
-    onError: () => toast.error("Failed to create journal entry"),
+    onError: (error) => toastApiError(error, "Failed to create journal entry"),
   })
 }
 
@@ -38,11 +40,13 @@ export function useUpdateJournalEntryStatus() {
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: JournalStatus }) => updateJournalEntryStatus(id, status),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["accounting", "journal"] })
-      queryClient.invalidateQueries({ queryKey: ["accounting", "ledger"] })
+      // Posting a journal entry changes Trial Balance/P&L/Balance Sheet/KPI
+      // totals too — invalidate the whole "accounting" prefix rather than
+      // just journal+ledger.
+      queryClient.invalidateQueries({ queryKey: ["accounting"] })
       toast.success("Journal entry updated")
     },
-    onError: () => toast.error("Failed to update journal entry"),
+    onError: (error) => toastApiError(error, "Failed to update journal entry"),
   })
 }
 
@@ -60,6 +64,10 @@ export function useProfitAndLoss() {
 
 export function useBalanceSheet() {
   return useQuery({ queryKey: ["accounting", "statements", "balance-sheet"], queryFn: fetchBalanceSheet })
+}
+
+export function useTrialBalance() {
+  return useQuery({ queryKey: ["accounting", "statements", "trial-balance"], queryFn: fetchTrialBalance })
 }
 
 export function useCashFlowStatement() {

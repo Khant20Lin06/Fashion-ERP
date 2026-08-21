@@ -11,11 +11,11 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { EmployeeAvatar } from "@/components/hr/EmployeeAvatar"
 import { AttendanceBadge } from "@/components/hr/AttendanceBadge"
 import { LeaveStatusBadge } from "@/components/hr/LeaveStatusBadge"
-import { SalaryCard } from "@/components/hr/SalaryCard"
+import { EmployeeCompensationList } from "@/features/payroll/components/EmployeeCompensationList"
 import { formatRelativeTime } from "@/lib/format"
 import { useAttendanceRecords } from "../hooks/useAttendance"
 import { useLeaveRequests } from "../hooks/useLeave"
-import { usePayrollEntries, usePerformanceReviews } from "../hooks/usePayroll"
+import { usePerformanceReviews } from "../hooks/usePayroll"
 import { useEmployeeDocuments } from "../hooks/useEmployees"
 import type { Employee } from "../types"
 
@@ -27,13 +27,11 @@ type EmployeeProfileProps = {
 export function EmployeeProfile({ employee }: EmployeeProfileProps) {
   const { data: attendance } = useAttendanceRecords()
   const { data: leaves } = useLeaveRequests()
-  const { data: payroll } = usePayrollEntries()
-  const { data: reviews } = usePerformanceReviews()
+  const { data: reviews, isError: reviewsError } = usePerformanceReviews()
   const { data: documents, isLoading: loadingDocuments } = useEmployeeDocuments(employee.id)
 
   const employeeAttendance = (attendance ?? []).filter((a) => a.employeeId === employee.id)
   const employeeLeaves = (leaves ?? []).filter((l) => l.employeeId === employee.id)
-  const employeePayroll = (payroll ?? []).filter((p) => p.employeeId === employee.id)
   const employeeReviews = (reviews ?? []).filter((r) => r.employeeId === employee.id)
 
   return (
@@ -137,13 +135,7 @@ export function EmployeeProfile({ employee }: EmployeeProfileProps) {
         </TabsContent>
 
         <TabsContent value="payroll" className="mt-4">
-          <div className="flex flex-col gap-4">
-            {employeePayroll.length === 0 ? (
-              <EmptyState title="No payroll records" description="Payslips will appear here." />
-            ) : (
-              employeePayroll.map((entry) => <SalaryCard key={entry.id} entry={entry} />)
-            )}
-          </div>
+          <EmployeeCompensationList employeeId={employee.id} />
         </TabsContent>
 
         <TabsContent value="performance" className="mt-4">
@@ -152,7 +144,9 @@ export function EmployeeProfile({ employee }: EmployeeProfileProps) {
               <CardTitle className="text-base">Performance Reviews</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
-              {employeeReviews.length === 0 ? (
+              {reviewsError ? (
+                <EmptyState title="Performance reviews not available" description="No backend performance module exists yet." />
+              ) : employeeReviews.length === 0 ? (
                 <EmptyState title="No reviews yet" description="Performance reviews will appear here." />
               ) : (
                 employeeReviews.map((review) => (

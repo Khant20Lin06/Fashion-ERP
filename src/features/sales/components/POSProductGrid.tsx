@@ -2,9 +2,11 @@
 
 import { useMemo, useState } from "react"
 import { Search } from "lucide-react"
+import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { EmptyState } from "@/components/ui/empty-state"
+import { ErrorState } from "@/components/ui/error-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import { POSProductCard } from "@/components/sales/POSProductCard"
 import { useAllProductsFull } from "@/features/products/hooks/useProducts"
@@ -15,12 +17,18 @@ import type { Product, ProductVariant } from "@/features/products/types"
 
 /** POS product search (name/SKU/barcode) + category filter + tappable product grid. */
 export function POSProductGrid() {
-  const { data: products, isLoading } = useAllProductsFull()
+  const { data: products, isLoading, isError, refetch } = useAllProductsFull()
   const { data: categories } = useCategories()
   const [query, setQuery] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string | undefined>(undefined)
   const [pickerProduct, setPickerProduct] = useState<Product | undefined>(undefined)
   const addItem = useCartStore((state) => state.addItem)
+
+  const posCategories = useMemo(() => {
+    const cats = (categories ?? []).filter((c) => c.isActive)
+    const parentIds = new Set(cats.map((c) => c.parentId).filter(Boolean))
+    return cats.filter((c) => !parentIds.has(c.id))
+  }, [categories])
 
   const filtered = useMemo(() => {
     if (!products) return []
@@ -36,19 +44,16 @@ export function POSProductGrid() {
   }, [products, query, categoryFilter])
 
   function handleProductClick(product: Product) {
-    if (product.variants.length > 0) {
-      setPickerProduct(product)
+    // Every real product has at least one ProductVariant backend-side — an
+    // empty variants array here means the per-product variants fetch
+    // failed (silently swallowed upstream, see product.api.ts). Adding to
+    // cart with a bare Product id would send an invalid productVariantId
+    // at checkout, so refuse rather than accept a broken cart line.
+    if (product.variants.length === 0) {
+      toast.error(`Couldn't load ${product.name}'s variants — try refreshing.`)
       return
     }
-    addItem({
-      id: product.id,
-      productId: product.id,
-      productName: product.name,
-      sku: product.sku,
-      imageUrl: primaryImage(product),
-      price: product.pricing.sellingPrice,
-      availableStock: product.stockQuantity,
-    })
+    setPickerProduct(product)
   }
 
   function handleVariantConfirm(product: Product, variant: ProductVariant) {
@@ -89,9 +94,7 @@ export function POSProductGrid() {
         >
           All
         </Badge>
-        {(categories ?? [])
-          .filter((c) => c.parentId !== null)
-          .map((category) => (
+        {posCategories.map((category) => (
             <Badge
               key={category.id}
               variant={categoryFilter === category.name ? "default" : "outline"}
@@ -110,6 +113,8 @@ export function POSProductGrid() {
               <Skeleton key={i} className="aspect-square w-full" />
             ))}
           </div>
+        ) : isError ? (
+          <ErrorState message="Couldn't load products." onRetry={refetch} />
         ) : filtered.length === 0 ? (
           <EmptyState title="No products found" description="Try a different search term or category." />
         ) : (

@@ -21,7 +21,9 @@ type RoleMatrixProps = {
   onEdit: (role: Role) => void
 }
 
-/** Role list — Name, Description, Permission Groups, User Count, Status. */
+/** Role list — Name, Code, Description, Permission Count, Status. No
+ * user-count field exists on RoleResponseDto — not derivable without a
+ * separate per-role query, so it's not shown here. */
 export function RoleMatrix({ onEdit }: RoleMatrixProps) {
   const { data, isLoading, isError, refetch } = useRoles()
   const { mutate: deleteRole } = useDeleteRole()
@@ -57,15 +59,9 @@ export function RoleMatrix({ onEdit }: RoleMatrixProps) {
                   {role.status === "active" ? "Active" : "Inactive"}
                 </Badge>
               </div>
+              <p className="font-mono text-xs text-muted-foreground">{role.code}</p>
               <p className="text-xs text-muted-foreground">{role.description}</p>
-              <div className="flex flex-wrap gap-1">
-                {role.permissionGroups.map((group) => (
-                  <Badge key={group} variant="secondary" className="text-xs capitalize">
-                    {group}
-                  </Badge>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground">{formatNumber(role.userCount)} users</p>
+              <p className="text-xs text-muted-foreground">{formatNumber(role.permissionCodes.length)} permissions</p>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -77,7 +73,7 @@ export function RoleMatrix({ onEdit }: RoleMatrixProps) {
                 <DropdownMenuItem onClick={() => onEdit(role)}>
                   <Pencil /> Edit
                 </DropdownMenuItem>
-                {!role.isSystem && (
+                {!role.isSystemRole && (
                   <DropdownMenuItem variant="destructive" onClick={() => deleteRole(role.id)}>
                     <Trash2 /> Delete
                   </DropdownMenuItem>

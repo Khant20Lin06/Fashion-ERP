@@ -28,6 +28,11 @@ export default async function proxy(request: NextRequest) {
   const session = await decryptSession(cookie)
   const isAuthenticated = Boolean(session?.userId)
 
+  if (pathname === "/") {
+    const target = isAuthenticated ? "/dashboard" : "/login"
+    return NextResponse.redirect(new URL(target, request.url))
+  }
+
   if (isProtectedRoute && !isAuthenticated) {
     const loginUrl = new URL("/login", request.url)
     loginUrl.searchParams.set("from", pathname)

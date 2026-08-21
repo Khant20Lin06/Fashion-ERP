@@ -1,33 +1,92 @@
-import type { AxiosInstance, AxiosError } from "axios"
+import type { AxiosInstance, InternalAxiosRequestConfig } from "axios"
+import axios from "axios"
 import { useAuthStore } from "@/stores/auth.store"
+import { toApiError } from "./errors"
+
+type RetriableRequestConfig = InternalAxiosRequestConfig & { _retried?: boolean }
+
+const REFRESH_PATH = "/auth/refresh"
+
+/**
+ * Shared across every concurrent 401 so a burst of simultaneously-failing
+ * requests triggers exactly one POST /auth/refresh, not one per request.
+ * Cleared once the in-flight attempt settles (success or failure) so the
+ * next 401 after that starts a fresh attempt rather than replaying a stale
+ * result.
+ */
+let refreshPromise: Promise<void> | null = null
+
+function isRefreshRequest(config: InternalAxiosRequestConfig | undefined): boolean {
+  return typeof config?.url === "string" && config.url.includes(REFRESH_PATH)
+}
 
 /**
  * Attaches request/response interceptors to the shared Axios instance.
- * - Request: no manual Authorization header needed — the JWT lives in an
- *   httpOnly cookie and is sent automatically via `withCredentials`.
- * - Response: normalizes errors and reacts to 401 by clearing client auth state.
+ * - Request: stamps a per-request x-request-id for tracing across
+ *   frontend logs and backend logs/error responses.
+ * - Response: normalizes every error into an ApiError (see ./errors.ts).
+ *   On 401 from any endpoint other than refresh itself, attempts exactly
+ *   one silent token refresh (single-flight across concurrent 401s) and
+ *   retries the original request once; if the refresh fails, clears client
+ *   auth state and redirects to login exactly as before. 403 is left for
+ *   callers to handle (permission-denied UI), since unlike 401 it doesn't
+ *   mean the session is invalid.
  */
 export function attachInterceptors(client: AxiosInstance) {
   client.interceptors.request.use((config) => {
-    // Placeholder for cross-cutting request concerns (request-id, locale header, etc.)
+    config.headers.set("x-request-id", crypto.randomUUID())
     return config
   })
 
   client.interceptors.response.use(
     (response) => response,
-    (error: AxiosError<{ message?: string }>) => {
-      if (error.response?.status === 401) {
-        // Session expired or invalid — clear local auth state so the UI
-        // reflects logged-out status; route protection is handled by proxy.ts.
-        useAuthStore.getState().clearUser()
+    async (error: unknown) => {
+      const apiError = toApiError(error)
+      const config = axios.isAxiosError(error)
+        ? (error.config as RetriableRequestConfig | undefined)
+        : undefined
+
+      const shouldAttemptRefresh =
+        apiError.isUnauthorized &&
+        config !== undefined &&
+        !config._retried &&
+        !isRefreshRequest(config)
+
+      if (!shouldAttemptRefresh) {
+        if (apiError.isUnauthorized) {
+          redirectToLogin()
+        }
+        return Promise.reject(apiError)
       }
 
-      const message =
-        error.response?.data?.message ??
-        error.message ??
-        "An unexpected network error occurred."
+      config._retried = true
 
-      return Promise.reject(new Error(message))
+      try {
+        // Single-flight: the first 401 in a burst starts the refresh and
+        // stores the promise; every other concurrent 401 awaits the same
+        // promise instead of issuing its own POST /auth/refresh.
+        if (!refreshPromise) {
+          refreshPromise = client
+            .post(REFRESH_PATH)
+            .then(() => undefined)
+            .finally(() => {
+              refreshPromise = null
+            })
+        }
+        await refreshPromise
+
+        return client.request(config)
+      } catch {
+        redirectToLogin()
+        return Promise.reject(apiError)
+      }
     }
   )
+}
+
+function redirectToLogin() {
+  useAuthStore.getState().clearUser()
+  if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+    window.location.href = "/login"
+  }
 }

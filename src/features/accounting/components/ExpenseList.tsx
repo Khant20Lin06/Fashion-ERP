@@ -1,15 +1,14 @@
 "use client"
 
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
 import { ErrorState } from "@/components/ui/error-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import { TransactionStatus } from "@/components/accounting/TransactionStatus"
 import { formatCurrency, formatRelativeTime } from "@/lib/format"
-import { useExpenses, useUpdateExpenseStatus } from "../hooks/usePayments"
-import type { ExpenseCategory, ExpenseStatus } from "../types"
+import { useExpenses } from "../hooks/usePayments"
+import type { ExpenseCategory } from "../types"
 
 const categoryLabels: Record<ExpenseCategory, string> = {
   salary: "Salary",
@@ -20,22 +19,10 @@ const categoryLabels: Record<ExpenseCategory, string> = {
   maintenance: "Maintenance",
 }
 
-const nextStatus: Partial<Record<ExpenseStatus, ExpenseStatus>> = {
-  submitted: "manager_approved",
-  manager_approved: "finance_approved",
-  finance_approved: "paid",
-}
-
-const nextStatusLabel: Partial<Record<ExpenseStatus, string>> = {
-  submitted: "Manager Approve",
-  manager_approved: "Finance Approve",
-  finance_approved: "Mark Paid",
-}
-
-/** Expense list — Employee submits -> Manager Approval -> Finance Approval -> Payment. */
+/** Expense list. No backend Expense entity exists (BACKEND GAP) — approval
+ * workflow actions are not shown since there is no endpoint to call. */
 export function ExpenseList() {
   const { data, isLoading, isError, refetch } = useExpenses()
-  const { mutate: updateStatus, isPending } = useUpdateExpenseStatus()
 
   if (isLoading) {
     return (
@@ -55,35 +42,25 @@ export function ExpenseList() {
 
   return (
     <div className="flex flex-col gap-3">
-      {data.map((expense) => {
-        const upcoming = nextStatus[expense.status]
-        return (
-          <Card key={expense.id}>
-            <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <p className="font-mono text-sm font-medium">{expense.reference}</p>
-                  <TransactionStatus status={expense.status} />
-                  <Badge variant="outline">{categoryLabels[expense.category]}</Badge>
-                </div>
-                <p className="text-sm">{expense.description}</p>
-                <p className="text-xs text-muted-foreground">
-                  {expense.submittedBy} · {formatRelativeTime(expense.createdAt)}
-                  {expense.receiptFilename ? ` · 📎 ${expense.receiptFilename}` : ""}
-                </p>
-              </div>
+      {data.map((expense) => (
+        <Card key={expense.id}>
+          <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="font-semibold">{formatCurrency(expense.amount)}</span>
-                {upcoming && (
-                  <Button size="sm" onClick={() => updateStatus({ id: expense.id, status: upcoming })} disabled={isPending}>
-                    {nextStatusLabel[expense.status]}
-                  </Button>
-                )}
+                <p className="font-mono text-sm font-medium">{expense.reference}</p>
+                <TransactionStatus status={expense.status} />
+                <Badge variant="outline">{categoryLabels[expense.category]}</Badge>
               </div>
-            </CardContent>
-          </Card>
-        )
-      })}
+              <p className="text-sm">{expense.description}</p>
+              <p className="text-xs text-muted-foreground">
+                {expense.submittedBy} · {formatRelativeTime(expense.createdAt)}
+                {expense.receiptFilename ? ` · 📎 ${expense.receiptFilename}` : ""}
+              </p>
+            </div>
+            <span className="font-semibold">{formatCurrency(expense.amount)}</span>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   )
 }

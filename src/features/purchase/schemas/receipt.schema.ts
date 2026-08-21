@@ -2,6 +2,11 @@ import { z } from "zod"
 
 export const receiptLineSchema = z
   .object({
+    // The originating PurchaseOrder line item's id — required by the
+    // backend's CreateGoodsReceiptItemDto as purchaseOrderItemId. Carried
+    // through from PurchaseLineItem.id when a line is populated from a
+    // selected PO (see GoodsReceiptForm), never user-entered.
+    purchaseOrderItemId: z.string().min(1),
     productId: z.string().min(1),
     productName: z.string(),
     sku: z.string(),

@@ -32,10 +32,10 @@ const daysFromNow = (n: number) => new Date(now + n * 86400000).toISOString()
 // --- Departments ---
 
 export const mockDepartments: Department[] = [
-  { id: "dept-hr", name: "HR Department", code: "HR", managerId: "emp-3", managerName: "Thandar Oo", employeeCount: 4, status: "active" },
-  { id: "dept-finance", name: "Finance Department", code: "FIN", managerId: "emp-4", managerName: "Zaw Myint", employeeCount: 6, status: "active" },
-  { id: "dept-sales", name: "Sales Department", code: "SLS", managerId: "emp-1", managerName: "Aung Kyaw", employeeCount: 18, status: "active" },
-  { id: "dept-warehouse", name: "Warehouse Department", code: "WHS", managerId: "emp-5", managerName: "Min Zaw", employeeCount: 12, status: "active" },
+  { id: "dept-hr", name: "HR Department", code: "HR", employeeCount: 4, status: "active" },
+  { id: "dept-finance", name: "Finance Department", code: "FIN", employeeCount: 6, status: "active" },
+  { id: "dept-sales", name: "Sales Department", code: "SLS", employeeCount: 18, status: "active" },
+  { id: "dept-warehouse", name: "Warehouse Department", code: "WHS", employeeCount: 12, status: "active" },
   { id: "dept-marketing", name: "Marketing Department", code: "MKT", employeeCount: 5, status: "active" },
 ]
 
@@ -245,8 +245,6 @@ export const attendanceMetrics: AttendanceMetrics = {
   present: 790,
   absent: 35,
   late: 42,
-  earlyLeave: 12,
-  overtime: 18,
 }
 
 export const attendanceOverview: AttendanceOverviewPoint[] = [
@@ -271,7 +269,7 @@ export const mockLeaveRequests: LeaveRequest[] = [
     endDate: daysFromNow(1),
     days: 3,
     reason: "Fever and flu symptoms",
-    status: "hr_approved",
+    status: "approved",
     createdAt: daysAgo(2),
   },
   {
@@ -284,7 +282,7 @@ export const mockLeaveRequests: LeaveRequest[] = [
     endDate: daysFromNow(14),
     days: 5,
     reason: "Family trip to Bagan",
-    status: "manager_approved",
+    status: "approved",
     createdAt: daysAgo(3),
   },
   {

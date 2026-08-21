@@ -32,6 +32,7 @@ import {
 import { WarehouseSelector } from "@/components/inventory/WarehouseSelector"
 import { QuantityInput } from "@/components/inventory/QuantityInput"
 import { EmptyState } from "@/components/ui/empty-state"
+import { Textarea } from "@/components/ui/textarea"
 import { transferFormSchema, type TransferFormValues } from "../schemas/transfer.schema"
 import { useInventory } from "../hooks/useInventory"
 import { useCreateTransfer } from "../hooks/useStockMovement"
@@ -44,19 +45,25 @@ export function StockTransferForm({ onCreated }: { onCreated?: () => void }) {
 
   const form = useForm<TransferFormValues>({
     resolver: zodResolver(transferFormSchema),
-    defaultValues: { fromWarehouseId: "", toWarehouseId: "", items: [] },
+    defaultValues: { fromWarehouseId: "", toWarehouseId: "", items: [], notes: "" },
   })
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" })
   const fromWarehouseId = form.watch("fromWarehouseId")
 
   const availableItems = (inventory ?? []).filter((item) => item.warehouseId === fromWarehouseId)
+  const selectableItems = availableItems.filter(
+    (item) => !fields.some((field) => field.productId === item.productVariantId),
+  )
 
   function handleAddProduct() {
     const item = availableItems.find((i) => i.id === pendingProductId)
     if (!item) return
     append({
-      productId: item.productId,
+      // The backend's stock-transfers endpoint requires a ProductVariant id
+      // — InventoryItem.productVariantId is exactly that (see
+      // features/inventory/api/inventory.api.ts).
+      productId: item.productVariantId,
       productName: item.productName,
       sku: item.sku,
       variantLabel: [item.color, item.size].filter(Boolean).join(" / ") || undefined,
@@ -69,7 +76,8 @@ export function StockTransferForm({ onCreated }: { onCreated?: () => void }) {
   function onSubmit(values: TransferFormValues) {
     createTransfer.mutate(values, {
       onSuccess: () => {
-        form.reset({ fromWarehouseId: "", toWarehouseId: "", items: [] })
+        form.reset({ fromWarehouseId: "", toWarehouseId: "", items: [], notes: "" })
+        setPendingProductId("")
         onCreated?.()
       },
     })
@@ -95,6 +103,7 @@ export function StockTransferForm({ onCreated }: { onCreated?: () => void }) {
                       onChange={(id) => {
                         field.onChange(id)
                         form.setValue("items", [])
+                        setPendingProductId("")
                       }}
                       placeholder="Select source warehouse"
                     />
@@ -137,9 +146,12 @@ export function StockTransferForm({ onCreated }: { onCreated?: () => void }) {
                     <SelectValue placeholder={fromWarehouseId ? "Select product" : "Select a from-warehouse first"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableItems.map((item) => (
+                    {selectableItems.map((item) => (
                       <SelectItem key={item.id} value={item.id}>
-                        {item.productName} {item.color || item.size ? `(${[item.color, item.size].filter(Boolean).join(" / ")})` : ""} — {item.availableQty} available
+                        {item.productName}
+                        {item.color || item.size ? ` (${[item.color, item.size].filter(Boolean).join(" / ")})` : ""}
+                        {item.sku ? ` - ${item.sku}` : ""}
+                        {` - ${item.availableQty} available`}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -167,7 +179,7 @@ export function StockTransferForm({ onCreated }: { onCreated?: () => void }) {
                   {fields.map((field, index) => (
                     <TableRow key={field.id}>
                       <TableCell className="font-medium">{field.productName}</TableCell>
-                      <TableCell>{field.variantLabel ?? "—"}</TableCell>
+                      <TableCell>{field.variantLabel ?? "-"}</TableCell>
                       <TableCell>{field.availableQty}</TableCell>
                       <TableCell>
                         <FormField
@@ -201,6 +213,19 @@ export function StockTransferForm({ onCreated }: { onCreated?: () => void }) {
             {form.formState.errors.items?.message && (
               <p className="text-sm text-destructive">{form.formState.errors.items.message}</p>
             )}
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notes (optional)</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Add transfer notes..." rows={3} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </CardContent>
         </Card>
 

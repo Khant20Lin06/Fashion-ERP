@@ -22,7 +22,11 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-import { categoryFormSchema, type CategoryFormValues } from "../schemas/product.schema"
+import {
+  categoryFormSchema,
+  type CategoryFormInput,
+  type CategoryFormValues,
+} from "../schemas/product.schema"
 import { useCategories, useCreateCategory, useUpdateCategory } from "../hooks/useCategories"
 import type { Category } from "../types"
 
@@ -40,9 +44,10 @@ export function CategoryFormDialog({ open, onOpenChange, category, defaultParent
   const updateCategory = useUpdateCategory(category?.id ?? "")
   const isEditing = !!category
 
-  const form = useForm<CategoryFormValues>({
+  const form = useForm<CategoryFormInput, unknown, CategoryFormValues>({
     resolver: zodResolver(categoryFormSchema),
     defaultValues: {
+      code: category?.code ?? "",
       name: category?.name ?? "",
       parentId: category?.parentId ?? defaultParentId ?? null,
       isActive: category?.isActive ?? true,
@@ -52,6 +57,7 @@ export function CategoryFormDialog({ open, onOpenChange, category, defaultParent
   useEffect(() => {
     if (open) {
       form.reset({
+        code: category?.code ?? "",
         name: category?.name ?? "",
         parentId: category?.parentId ?? defaultParentId ?? null,
         isActive: category?.isActive ?? true,
@@ -73,6 +79,31 @@ export function CategoryFormDialog({ open, onOpenChange, category, defaultParent
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
+            <FormField
+              control={form.control}
+              name="code"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Category Code</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="e.g. MEN_SHIRTS"
+                      {...field}
+                      value={typeof field.value === "string" ? field.value : ""}
+                      readOnly={isEditing}
+                      onChange={(event) => field.onChange(event.target.value.toUpperCase())}
+                    />
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    {isEditing
+                      ? "Category code cannot be changed after creation."
+                      : "Optional. Leave blank to auto-generate. Use uppercase letters, numbers, - and _ only."}
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name="name"

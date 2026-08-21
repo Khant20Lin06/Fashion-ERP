@@ -15,7 +15,7 @@ export default function EssPage() {
   const [employeeId, setEmployeeId] = useState<string | undefined>(undefined)
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false)
 
-  const employee = employees?.find((e) => e.id === employeeId) ?? employees?.[0]
+  const employee = employees?.find((e) => e.id === employeeId)
 
   return (
     <div className="flex flex-col gap-6">

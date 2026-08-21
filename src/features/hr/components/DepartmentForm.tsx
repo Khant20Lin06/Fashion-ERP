@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import {
   Form,
@@ -22,7 +21,6 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { useCreateDepartment, useUpdateDepartment } from "../hooks/useOrganization"
-import { useEmployees } from "../hooks/useEmployees"
 import type { DepartmentFormValues } from "../api/organization.api"
 import type { Department } from "../types"
 
@@ -32,9 +30,10 @@ type DepartmentFormDialogProps = {
   department?: Department
 }
 
-/** Create/edit dialog for a department — Name, Code, Manager, Status. */
+/** Create/edit dialog for a department — Name, Code, Status. No Manager
+ * field: no manager relationship exists anywhere on the backend Department
+ * entity. */
 export function DepartmentFormDialog({ open, onOpenChange, department }: DepartmentFormDialogProps) {
-  const { data: employees } = useEmployees()
   const createDepartment = useCreateDepartment()
   const updateDepartment = useUpdateDepartment(department?.id ?? "")
   const isEditing = !!department
@@ -43,7 +42,6 @@ export function DepartmentFormDialog({ open, onOpenChange, department }: Departm
     defaultValues: {
       name: department?.name ?? "",
       code: department?.code ?? "",
-      managerId: department?.managerId ?? "",
       status: department?.status ?? "active",
     },
   })
@@ -53,7 +51,6 @@ export function DepartmentFormDialog({ open, onOpenChange, department }: Departm
       form.reset({
         name: department?.name ?? "",
         code: department?.code ?? "",
-        managerId: department?.managerId ?? "",
         status: department?.status ?? "active",
       })
     }
@@ -95,30 +92,6 @@ export function DepartmentFormDialog({ open, onOpenChange, department }: Departm
                   <FormControl>
                     <Input placeholder="e.g. MKT" className="font-mono" {...field} />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="managerId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Manager</FormLabel>
-                  <Select value={field.value ?? ""} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select manager" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {(employees ?? []).map((e) => (
-                        <SelectItem key={e.id} value={e.id}>
-                          {e.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

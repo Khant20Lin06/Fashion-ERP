@@ -1,19 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { toastApiError } from "@/lib/api/errors"
 import { createBrand, deleteBrand, fetchBrands, fetchCollections, updateBrand } from "../api/brand.api"
 import type { BrandFormValues } from "../schemas/product.schema"
 
 export function useBrands() {
   return useQuery({
     queryKey: ["brands"],
-    queryFn: fetchBrands,
+    queryFn: () => fetchBrands(),
   })
 }
 
 export function useCollections() {
   return useQuery({
     queryKey: ["collections"],
-    queryFn: fetchCollections,
+    queryFn: () => fetchCollections(),
   })
 }
 
@@ -25,7 +26,7 @@ export function useCreateBrand() {
       queryClient.invalidateQueries({ queryKey: ["brands"] })
       toast.success("Brand created")
     },
-    onError: () => toast.error("Failed to create brand"),
+    onError: (error) => toastApiError(error, "Failed to create brand"),
   })
 }
 
@@ -37,7 +38,7 @@ export function useUpdateBrand(id: string) {
       queryClient.invalidateQueries({ queryKey: ["brands"] })
       toast.success("Brand updated")
     },
-    onError: () => toast.error("Failed to update brand"),
+    onError: (error) => toastApiError(error, "Failed to update brand"),
   })
 }
 
@@ -49,6 +50,6 @@ export function useDeleteBrand() {
       queryClient.invalidateQueries({ queryKey: ["brands"] })
       toast.success("Brand deleted")
     },
-    onError: () => toast.error("Failed to delete brand"),
+    onError: (error) => toastApiError(error, "Failed to delete brand"),
   })
 }

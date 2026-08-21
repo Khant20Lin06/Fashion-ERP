@@ -1,28 +1,19 @@
 "use client"
 
-import { ArrowRight, Check, X } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
 import { ErrorState } from "@/components/ui/error-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatRelativeTime } from "@/lib/format"
-import { useTransfers, useUpdateTransferStatus } from "../hooks/useStockMovement"
-import type { TransferStatus } from "../types"
+import { useTransfers } from "../hooks/useStockMovement"
 
-const statusConfig: Record<TransferStatus, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  draft: { label: "Draft", variant: "outline" },
-  pending_approval: { label: "Pending Approval", variant: "secondary" },
-  approved: { label: "Approved", variant: "default" },
-  completed: { label: "Completed", variant: "default" },
-  cancelled: { label: "Cancelled", variant: "destructive" },
-}
-
-/** Transfer workflow list: Draft -> Pending Approval -> Approved -> Completed, with Manager approval actions. */
+/** Transfer history list. Real backend StockTransfers are create-only/atomic
+ * (Phase 14 D9/D22, LOCKED) — no draft/approval/completion workflow exists,
+ * so every listed transfer already moved stock the moment it was created. */
 export function TransferList() {
   const { data, isLoading, isError, refetch } = useTransfers()
-  const { mutate: updateStatus, isPending } = useUpdateTransferStatus()
 
   if (isLoading) {
     return (
@@ -42,57 +33,26 @@ export function TransferList() {
 
   return (
     <div className="flex flex-col gap-3">
-      {data.map((transfer) => {
-        const config = statusConfig[transfer.status]
-        return (
-          <Card key={transfer.id}>
-            <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <p className="font-mono text-sm font-medium">{transfer.reference}</p>
-                  <Badge variant={config.variant}>{config.label}</Badge>
-                </div>
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <span>{transfer.fromWarehouseName}</span>
-                  <ArrowRight className="size-3.5" />
-                  <span>{transfer.toWarehouseName}</span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {transfer.items.length} item(s) · Created by {transfer.createdBy} · {formatRelativeTime(transfer.createdAt)}
-                </p>
+      {data.map((transfer) => (
+        <Card key={transfer.id}>
+          <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <p className="font-mono text-sm font-medium">{transfer.reference}</p>
+                <Badge variant="default">Completed</Badge>
               </div>
-
-              <div className="flex gap-2">
-                {transfer.status === "draft" && (
-                  <Button size="sm" onClick={() => updateStatus({ id: transfer.id, status: "pending_approval" })} disabled={isPending}>
-                    Submit for Approval
-                  </Button>
-                )}
-                {transfer.status === "pending_approval" && (
-                  <>
-                    <Button size="sm" onClick={() => updateStatus({ id: transfer.id, status: "approved" })} disabled={isPending}>
-                      <Check /> Approve
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => updateStatus({ id: transfer.id, status: "cancelled" })}
-                      disabled={isPending}
-                    >
-                      <X /> Reject
-                    </Button>
-                  </>
-                )}
-                {transfer.status === "approved" && (
-                  <Button size="sm" onClick={() => updateStatus({ id: transfer.id, status: "completed" })} disabled={isPending}>
-                    Confirm Receipt
-                  </Button>
-                )}
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <span>{transfer.fromWarehouseName}</span>
+                <ArrowRight className="size-3.5" />
+                <span>{transfer.toWarehouseName}</span>
               </div>
-            </CardContent>
-          </Card>
-        )
-      })}
+              <p className="text-xs text-muted-foreground">
+                {transfer.items.length} item(s) - Created by {transfer.createdBy} - {formatRelativeTime(transfer.createdAt)}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   )
 }

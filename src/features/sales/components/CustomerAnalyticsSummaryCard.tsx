@@ -1,13 +1,16 @@
 "use client"
 
 import { Card, CardContent } from "@/components/ui/card"
+import { ErrorState } from "@/components/ui/error-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatCurrency, formatNumber } from "@/lib/format"
 import { useCustomerAnalyticsSummary } from "../hooks/useSales"
 
 /** Customer Analytics summary — New Customers, Returning Customers, Customer Lifetime Value. */
 export function CustomerAnalyticsSummaryCard() {
-  const { data, isLoading } = useCustomerAnalyticsSummary()
+  const { data, isLoading, isError, refetch } = useCustomerAnalyticsSummary()
+
+  if (isError) return <ErrorState message="Couldn't load customer analytics." onRetry={refetch} />
 
   if (isLoading || !data) {
     return (

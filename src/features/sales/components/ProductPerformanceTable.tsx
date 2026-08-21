@@ -9,16 +9,19 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { EmptyState } from "@/components/ui/empty-state"
+import { ErrorState } from "@/components/ui/error-state"
 import { Skeleton } from "@/components/ui/skeleton"
-import { formatCurrency, formatNumber, formatPercent } from "@/lib/format"
+import { formatCurrency, formatNumber } from "@/lib/format"
 import { useProductPerformance } from "../hooks/useSales"
 import type { ProductPerformancePoint } from "../types"
 
-/** Product Performance table — Top Selling / Slow Moving products with profit margin. */
+/** Product Performance table — Top Selling / Slow Moving products by units sold and revenue. */
 export function ProductPerformanceTable() {
-  const { data, isLoading } = useProductPerformance()
+  const { data, isLoading, isError, refetch } = useProductPerformance()
 
   if (isLoading) return <Skeleton className="h-48 w-full" />
+
+  if (isError) return <ErrorState message="Couldn't load product performance." onRetry={refetch} />
 
   if (!data || data.length === 0) {
     return <EmptyState title="No product performance data" description="Sales activity will populate this table." />
@@ -49,7 +52,6 @@ function ProductTable({ rows }: { rows: ProductPerformancePoint[] | undefined })
           <TableHead>Product</TableHead>
           <TableHead>Units Sold</TableHead>
           <TableHead>Revenue</TableHead>
-          <TableHead>Profit Margin</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -58,7 +60,6 @@ function ProductTable({ rows }: { rows: ProductPerformancePoint[] | undefined })
             <TableCell className="font-medium">{point.productName}</TableCell>
             <TableCell>{formatNumber(point.unitsSold)}</TableCell>
             <TableCell>{formatCurrency(point.revenue)}</TableCell>
-            <TableCell>{formatPercent(point.profitMargin)}</TableCell>
           </TableRow>
         ))}
       </TableBody>

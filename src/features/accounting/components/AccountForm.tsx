@@ -53,7 +53,6 @@ export function AccountFormDialog({ open, onOpenChange, account, defaultParentId
       code: account?.code ?? "",
       type: account?.type ?? "asset",
       parentId: account?.parentId ?? defaultParentId ?? null,
-      currency: account?.currency ?? "USD",
       status: account?.status ?? "active",
     },
   })
@@ -65,7 +64,6 @@ export function AccountFormDialog({ open, onOpenChange, account, defaultParentId
         code: account?.code ?? "",
         type: account?.type ?? "asset",
         parentId: account?.parentId ?? defaultParentId ?? null,
-        currency: account?.currency ?? "USD",
         status: account?.status ?? "active",
       })
     }
@@ -164,20 +162,6 @@ export function AccountFormDialog({ open, onOpenChange, account, defaultParentId
                         ))}
                     </SelectContent>
                   </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="currency"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Currency</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g. USD" {...field} />
-                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

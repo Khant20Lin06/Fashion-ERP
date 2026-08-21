@@ -21,8 +21,20 @@ export function useLogin() {
 
   return useMutation({
     mutationFn: async (values: LoginFormValues) => {
-      const { data } = await axios.post<LoginRouteResponse>("/api/auth/login", values)
-      return data
+      try {
+        const { data } = await axios.post<LoginRouteResponse>("/api/auth/login", values)
+        return data
+      } catch (error: unknown) {
+        if (axios.isAxiosError(error)) {
+          const message =
+            typeof error.response?.data?.message === "string"
+              ? error.response.data.message
+              : "Login failed. Please try again."
+          throw new Error(message)
+        }
+
+        throw error
+      }
     },
     onSuccess: (data) => {
       setUser(data.user)

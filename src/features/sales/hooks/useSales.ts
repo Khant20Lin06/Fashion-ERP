@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { toastApiError } from "@/lib/api/errors"
 import {
   createSalesOrder,
   fetchCustomerAnalyticsSummary,
@@ -18,7 +19,7 @@ import type { RevenueTrendGranularity, SalesOrderStatus } from "../types"
 export function useSalesOrders() {
   return useQuery({
     queryKey: ["sales-orders"],
-    queryFn: fetchSalesOrders,
+    queryFn: () => fetchSalesOrders(),
   })
 }
 
@@ -38,7 +39,7 @@ export function useCreateSalesOrder() {
       queryClient.invalidateQueries({ queryKey: ["sales-orders"] })
       toast.success("Sales order created")
     },
-    onError: () => toast.error("Failed to create sales order"),
+    onError: (error) => toastApiError(error, "Failed to create sales order"),
   })
 }
 
@@ -48,9 +49,14 @@ export function useUpdateSalesOrderStatus() {
     mutationFn: ({ id, status }: { id: string; status: SalesOrderStatus }) => updateSalesOrderStatus(id, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sales-orders"] })
+      // confirm/cancel both mutate stock server-side (confirm locks
+      // inventory, cancel releases it) — matches useCheckout's invalidation.
+      queryClient.invalidateQueries({ queryKey: ["inventory"] })
+      queryClient.invalidateQueries({ queryKey: ["stock-movements"] })
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] })
       toast.success("Sales order updated")
     },
-    onError: () => toast.error("Failed to update sales order"),
+    onError: (error) => toastApiError(error, "Failed to update sales order"),
   })
 }
 
@@ -59,7 +65,7 @@ export function useUpdateSalesOrderStatus() {
 export function useSalesKpis() {
   return useQuery({
     queryKey: ["sales", "kpis"],
-    queryFn: fetchSalesKpis,
+    queryFn: () => fetchSalesKpis(),
   })
 }
 
@@ -73,13 +79,13 @@ export function useRevenueTrend(granularity: RevenueTrendGranularity) {
 export function useProductPerformance() {
   return useQuery({
     queryKey: ["sales", "analytics", "product-performance"],
-    queryFn: fetchProductPerformance,
+    queryFn: () => fetchProductPerformance(),
   })
 }
 
 export function useCustomerAnalyticsSummary() {
   return useQuery({
     queryKey: ["sales", "analytics", "customers"],
-    queryFn: fetchCustomerAnalyticsSummary,
+    queryFn: () => fetchCustomerAnalyticsSummary(),
   })
 }

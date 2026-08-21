@@ -18,7 +18,7 @@ import type { AuthUser } from "@/types/user"
 
 export type SessionPayload = {
   userId: string
-  role: AuthUser["role"]
+  role?: AuthUser["role"]
   expiresAt: number
 }
 
@@ -47,7 +47,7 @@ export async function decryptSession(
   }
 }
 
-export async function createSessionCookie(userId: string, role: AuthUser["role"]) {
+export async function createSessionCookie(userId: string, role?: AuthUser["role"]) {
   const expiresAt = Date.now() + SESSION_MAX_AGE_SECONDS * 1000
   const session = await encryptSession({ userId, role, expiresAt })
   const cookieStore = await cookies()

@@ -1,14 +1,15 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { FeatureUnavailable } from "@/components/feature-gate/FeatureUnavailable"
 import { InventoryKpiSection } from "@/features/inventory/components/InventoryKpiSection"
 import { StockValueChart } from "@/features/inventory/components/InventoryChart"
 import { InventoryTable } from "@/features/inventory/components/InventoryTable"
 import { useInventoryKpis, useStockValueByWarehouse } from "@/features/inventory/hooks/useInventory"
 
 export default function InventoryOverviewPage() {
-  const { data: kpis, isLoading: loadingKpis } = useInventoryKpis()
-  const { data: stockValueData } = useStockValueByWarehouse()
+  const { data: kpis, isLoading: loadingKpis, isError: kpisError } = useInventoryKpis()
+  const { data: stockValueData, isError: stockValueError } = useStockValueByWarehouse()
 
   return (
     <div className="flex flex-col gap-6">
@@ -19,16 +20,25 @@ export default function InventoryOverviewPage() {
         </p>
       </div>
 
-      <InventoryKpiSection kpis={kpis} isLoading={loadingKpis} />
+      {kpisError ? (
+        <FeatureUnavailable
+          title="Inventory KPIs not available"
+          description="No backend inventory KPI-aggregate endpoint exists yet."
+        />
+      ) : (
+        <InventoryKpiSection kpis={kpis} isLoading={loadingKpis} />
+      )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Stock Value by Warehouse</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <StockValueChart data={stockValueData ?? []} />
-        </CardContent>
-      </Card>
+      {!stockValueError && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Stock Value by Warehouse</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <StockValueChart data={stockValueData ?? []} />
+          </CardContent>
+        </Card>
+      )}
 
       <InventoryTable />
     </div>

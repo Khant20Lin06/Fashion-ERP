@@ -31,28 +31,38 @@ export const checkoutFormSchema = z.object({
 
 export type CheckoutFormValues = z.infer<typeof checkoutFormSchema>
 
+const salesReturnItemConditionSchema = z.enum(["RESTOCK", "DAMAGED"])
+
 export const salesReturnItemSchema = z
   .object({
+    saleItemId: z.string().min(1),
     productId: z.string().min(1, "Product is required"),
     productName: z.string(),
     sku: z.string(),
     color: z.string().optional(),
     size: z.string().optional(),
     purchasedQty: z.number(),
-    returnQty: z.number().positive("Return quantity must be greater than zero"),
+    maxReturnableQty: z.number().min(0),
+    returnQty: z.number().min(0, "Return quantity cannot be negative"),
     unitPrice: z.number().min(0),
+    condition: salesReturnItemConditionSchema,
   })
-  .refine((data) => data.returnQty <= data.purchasedQty, {
-    message: "Return quantity cannot exceed purchase quantity",
+  .refine((data) => data.returnQty <= data.maxReturnableQty, {
+    message: "Return quantity cannot exceed remaining returnable quantity",
     path: ["returnQty"],
   })
 
+// invoiceId here is the real Sale id (CreateSaleReturnDto.saleId) — there
+// is no separate refundMethod/type on the backend (see SalesReturn type
+// comment), only a free-text reason and the line items being returned.
 export const salesReturnFormSchema = z.object({
   invoiceId: z.string().min(1, "Invoice is required"),
-  type: z.enum(["product_return", "exchange", "refund", "store_credit"]),
   reason: z.string().min(1, "Reason is required"),
-  refundMethod: z.enum(["cash", "card", "bank_transfer", "mobile_payment", "credit", "store_credit"]),
+  notes: z.string().max(1000, "Notes must be 1000 characters or fewer").optional(),
   items: z.array(salesReturnItemSchema).min(1, "Add at least one product to return"),
+}).refine((data) => data.items.some((item) => item.returnQty > 0), {
+  message: "Choose at least one item with a return quantity greater than zero",
+  path: ["items"],
 })
 
 export type SalesReturnFormValues = z.infer<typeof salesReturnFormSchema>

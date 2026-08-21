@@ -4,6 +4,21 @@
 
 @custom-variant dark (&:is(.dark *));
 
+:root {
+  /*
+   * Deterministic system font stacks — replaces next/font/google's Geist /
+   * Geist Mono, which required a build-time fetch from fonts.googleapis.com
+   * and broke production builds without network access. Named to match the
+   * variables Geist used to inject so no other file needs to change.
+   */
+  --font-geist-sans:
+    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-geist-mono:
+    ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

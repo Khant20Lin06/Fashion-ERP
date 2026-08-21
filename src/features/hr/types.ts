@@ -34,12 +34,11 @@ export type Employee = {
 
 export type DepartmentStatus = "active" | "inactive"
 
+// No manager relationship exists anywhere on the backend Department entity.
 export type Department = {
   id: string
   name: string
   code: string
-  managerId?: string
-  managerName?: string
   employeeCount: number
   status: DepartmentStatus
 }
@@ -68,12 +67,13 @@ export type AttendanceRecord = {
   status: AttendanceStatus
 }
 
+// No backend calculation exists for early-leave or overtime — attendance
+// status is a raw caller-supplied enum, never derived from check-in/out
+// times — so those two figures are omitted rather than hardcoded to 0.
 export type AttendanceMetrics = {
   present: number
   absent: number
   late: number
-  earlyLeave: number
-  overtime: number
 }
 
 // --- Shifts ---
@@ -91,7 +91,9 @@ export type Shift = {
 // --- Leave ---
 
 export type LeaveType = "annual" | "sick" | "emergency" | "unpaid" | "maternity"
-export type LeaveStatus = "requested" | "manager_approved" | "hr_approved" | "rejected"
+// Backend LeaveRequestStatus (exact enum): PENDING | APPROVED | REJECTED |
+// CANCELLED — a single approval step, no manager-then-HR distinction.
+export type LeaveStatus = "requested" | "approved" | "rejected" | "cancelled"
 
 export type LeaveRequest = {
   id: string

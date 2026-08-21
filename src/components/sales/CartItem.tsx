@@ -11,10 +11,15 @@ type CartItemProps = {
   onQuantityChange: (quantity: number) => void
   onDiscountChange: (discountPercent: number) => void
   onRemove: () => void
+  /** Real backend requirement: POST /sales requires sales.discount.apply
+   * whenever any item has a non-zero discountAmount. Defaults to true so
+   * existing callers keep working; CartPanel passes the real permission
+   * check. */
+  canDiscount?: boolean
 }
 
 /** A single POS cart line — image, name, variant, qty stepper, discount input, line total. */
-export function CartItem({ item, onQuantityChange, onDiscountChange, onRemove }: CartItemProps) {
+export function CartItem({ item, onQuantityChange, onDiscountChange, onRemove, canDiscount = true }: CartItemProps) {
   const lineTotal = item.price * item.quantity * (1 - item.discountPercent / 100)
 
   return (
@@ -42,17 +47,19 @@ export function CartItem({ item, onQuantityChange, onDiscountChange, onRemove }:
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <QuantityInput value={item.quantity} onChange={onQuantityChange} min={1} max={item.availableStock} />
-          <div className="flex items-center gap-1">
-            <Input
-              type="number"
-              min={0}
-              max={100}
-              value={item.discountPercent}
-              onChange={(e) => onDiscountChange(Number(e.target.value) || 0)}
-              className="w-14"
-            />
-            <span className="text-xs text-muted-foreground">% off</span>
-          </div>
+          {canDiscount && (
+            <div className="flex items-center gap-1">
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={item.discountPercent}
+                onChange={(e) => onDiscountChange(Number(e.target.value) || 0)}
+                className="w-14"
+              />
+              <span className="text-xs text-muted-foreground">% off</span>
+            </div>
+          )}
           <span className="ml-auto text-sm font-semibold">{formatCurrency(lineTotal)}</span>
         </div>
       </div>

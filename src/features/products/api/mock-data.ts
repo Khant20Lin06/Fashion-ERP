@@ -8,23 +8,23 @@ import type {
 } from "../types"
 
 export const mockCategories: Category[] = [
-  { id: "cat-fashion", name: "Fashion", parentId: null, isActive: true, productCount: 5 },
-  { id: "cat-men", name: "Men", parentId: "cat-fashion", isActive: true, productCount: 2 },
-  { id: "cat-men-shirts", name: "Shirts", parentId: "cat-men", isActive: true, productCount: 1 },
-  { id: "cat-men-pants", name: "Pants", parentId: "cat-men", isActive: true, productCount: 1 },
-  { id: "cat-women", name: "Women", parentId: "cat-fashion", isActive: true, productCount: 2 },
-  { id: "cat-women-dresses", name: "Dresses", parentId: "cat-women", isActive: true, productCount: 1 },
-  { id: "cat-women-skirts", name: "Skirts", parentId: "cat-women", isActive: true, productCount: 1 },
-  { id: "cat-kids", name: "Kids", parentId: "cat-fashion", isActive: true, productCount: 1 },
-  { id: "cat-accessories", name: "Accessories", parentId: null, isActive: true, productCount: 1 },
+  { id: "cat-fashion", code: "FASHION", name: "Fashion", parentId: null, isActive: true, productCount: 5 },
+  { id: "cat-men", code: "MEN", name: "Men", parentId: "cat-fashion", isActive: true, productCount: 2 },
+  { id: "cat-men-shirts", code: "MEN-SHIRTS", name: "Shirts", parentId: "cat-men", isActive: true, productCount: 1 },
+  { id: "cat-men-pants", code: "MEN-PANTS", name: "Pants", parentId: "cat-men", isActive: true, productCount: 1 },
+  { id: "cat-women", code: "WOMEN", name: "Women", parentId: "cat-fashion", isActive: true, productCount: 2 },
+  { id: "cat-women-dresses", code: "WOMEN-DRESSES", name: "Dresses", parentId: "cat-women", isActive: true, productCount: 1 },
+  { id: "cat-women-skirts", code: "WOMEN-SKIRTS", name: "Skirts", parentId: "cat-women", isActive: true, productCount: 1 },
+  { id: "cat-kids", code: "KIDS", name: "Kids", parentId: "cat-fashion", isActive: true, productCount: 1 },
+  { id: "cat-accessories", code: "ACCESSORIES", name: "Accessories", parentId: null, isActive: true, productCount: 1 },
 ]
 
 export const mockBrands: Brand[] = [
-  { id: "brand-nike", name: "Nike", country: "USA", description: "Sportswear and athletic apparel.", isActive: true, productCount: 1 },
-  { id: "brand-zara", name: "Zara", country: "Spain", description: "Fast fashion retailer.", isActive: true, productCount: 1 },
-  { id: "brand-hm", name: "H&M", country: "Sweden", description: "Affordable fashion for all.", isActive: true, productCount: 1 },
-  { id: "brand-guess", name: "Guess", country: "USA", description: "Premium denim and accessories.", isActive: true, productCount: 1 },
-  { id: "brand-mango", name: "Mango", country: "Spain", description: "Contemporary women's fashion.", isActive: true, productCount: 1 },
+  { id: "brand-nike", code: "NIKE", name: "Nike", country: "USA", description: "Sportswear and athletic apparel.", isActive: true, productCount: 1 },
+  { id: "brand-zara", code: "ZARA", name: "Zara", country: "Spain", description: "Fast fashion retailer.", isActive: true, productCount: 1 },
+  { id: "brand-hm", code: "HM", name: "H&M", country: "Sweden", description: "Affordable fashion for all.", isActive: true, productCount: 1 },
+  { id: "brand-guess", code: "GUESS", name: "Guess", country: "USA", description: "Premium denim and accessories.", isActive: true, productCount: 1 },
+  { id: "brand-mango", code: "MANGO", name: "Mango", country: "Spain", description: "Contemporary women's fashion.", isActive: true, productCount: 1 },
 ]
 
 export const mockCollections: Collection[] = [
@@ -34,22 +34,22 @@ export const mockCollections: Collection[] = [
 ]
 
 export const attributeOptions: AttributeOption[] = [
-  { id: "size-xs", kind: "size", value: "XS" },
-  { id: "size-s", kind: "size", value: "S" },
-  { id: "size-m", kind: "size", value: "M" },
-  { id: "size-l", kind: "size", value: "L" },
-  { id: "size-xl", kind: "size", value: "XL" },
-  { id: "size-xxl", kind: "size", value: "XXL" },
-  { id: "color-black", kind: "color", value: "Black", swatch: "#0a0a0a" },
-  { id: "color-white", kind: "color", value: "White", swatch: "#fafafa" },
-  { id: "color-red", kind: "color", value: "Red", swatch: "#dc2626" },
-  { id: "color-blue", kind: "color", value: "Blue", swatch: "#2563eb" },
-  { id: "style-slim", kind: "style", value: "Slim Fit" },
-  { id: "style-regular", kind: "style", value: "Regular Fit" },
-  { id: "style-oversize", kind: "style", value: "Oversize" },
-  { id: "material-cotton", kind: "material", value: "Cotton" },
-  { id: "material-denim", kind: "material", value: "Denim" },
-  { id: "material-leather", kind: "material", value: "Leather" },
+  { id: "size-xs", kind: "size", code: "ATTR-SIZ-XS", value: "XS", isActive: true },
+  { id: "size-s", kind: "size", code: "ATTR-SIZ-S", value: "S", isActive: true },
+  { id: "size-m", kind: "size", code: "ATTR-SIZ-M", value: "M", isActive: true },
+  { id: "size-l", kind: "size", code: "ATTR-SIZ-L", value: "L", isActive: true },
+  { id: "size-xl", kind: "size", code: "ATTR-SIZ-XL", value: "XL", isActive: true },
+  { id: "size-xxl", kind: "size", code: "ATTR-SIZ-XXL", value: "XXL", isActive: true },
+  { id: "color-black", kind: "color", code: "ATTR-COL-BLACK", value: "Black", swatch: "#0a0a0a", isActive: true },
+  { id: "color-white", kind: "color", code: "ATTR-COL-WHITE", value: "White", swatch: "#fafafa", isActive: true },
+  { id: "color-red", kind: "color", code: "ATTR-COL-RED", value: "Red", swatch: "#dc2626", isActive: true },
+  { id: "color-blue", kind: "color", code: "ATTR-COL-BLUE", value: "Blue", swatch: "#2563eb", isActive: true },
+  { id: "style-slim", kind: "style", code: "ATTR-STY-SLIM", value: "Slim Fit", isActive: true },
+  { id: "style-regular", kind: "style", code: "ATTR-STY-REGULAR", value: "Regular Fit", isActive: true },
+  { id: "style-oversize", kind: "style", code: "ATTR-STY-OVERSIZE", value: "Oversize", isActive: true },
+  { id: "material-cotton", kind: "material", code: "ATTR-MAT-COTTON", value: "Cotton", isActive: true },
+  { id: "material-denim", kind: "material", code: "ATTR-MAT-DENIM", value: "Denim", isActive: true },
+  { id: "material-leather", kind: "material", code: "ATTR-MAT-LEATHER", value: "Leather", isActive: true },
 ]
 
 const now = new Date().toISOString()

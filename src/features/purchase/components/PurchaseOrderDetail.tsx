@@ -8,7 +8,12 @@ type PurchaseOrderDetailProps = {
   order: PurchaseOrder
 }
 
-/** Purchase Order detail — supplier info, line items, and totals summary. */
+function formatOptionalDate(value: string) {
+  if (!value) return "-"
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString()
+}
+
 export function PurchaseOrderDetail({ order }: PurchaseOrderDetailProps) {
   return (
     <div className="flex flex-col gap-6">
@@ -16,8 +21,7 @@ export function PurchaseOrderDetail({ order }: PurchaseOrderDetailProps) {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">{order.poNumber}</h1>
           <p className="text-sm text-muted-foreground">
-            {order.supplierName} · Ordered {new Date(order.date).toLocaleDateString()} · Delivery{" "}
-            {new Date(order.deliveryDate).toLocaleDateString()}
+            {order.supplierName} · Ordered {formatOptionalDate(order.date)} · Delivery {formatOptionalDate(order.deliveryDate)}
           </p>
         </div>
         <PurchaseStatusBadge status={order.status} />
@@ -30,15 +34,15 @@ export function PurchaseOrderDetail({ order }: PurchaseOrderDetailProps) {
         <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
             <p className="text-xs font-medium text-muted-foreground">Supplier</p>
-            <p className="text-sm">{order.supplierName}</p>
+            <p className="text-sm">{order.supplierName || "-"}</p>
           </div>
           <div>
             <p className="text-xs font-medium text-muted-foreground">Contact</p>
-            <p className="text-sm">{order.contact}</p>
+            <p className="text-sm">{order.contact || "-"}</p>
           </div>
           <div>
             <p className="text-xs font-medium text-muted-foreground">Payment Terms</p>
-            <p className="text-sm">{order.paymentTerms}</p>
+            <p className="text-sm">{order.paymentTerms || "-"}</p>
           </div>
         </CardContent>
       </Card>

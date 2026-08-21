@@ -7,11 +7,16 @@ const TAX_RATE = 0.08
 type CartStoreState = {
   items: CartItem[]
   customerId: string | undefined
+  /** Promotion code entered at checkout — CreateSaleDto.promotionCode.
+   * Its discount is resolved and applied entirely server-side; the cart
+   * only carries the code string, never a computed discount amount. */
+  promotionCode: string | undefined
   addItem: (item: Omit<CartItem, "quantity" | "discountPercent"> & { quantity?: number }) => void
   removeItem: (id: string) => void
   setQuantity: (id: string, quantity: number) => void
   setDiscount: (id: string, discountPercent: number) => void
   setCustomer: (customerId: string | undefined) => void
+  setPromotionCode: (promotionCode: string | undefined) => void
   clearCart: () => void
 }
 
@@ -20,6 +25,7 @@ export const useCartStore = create<CartStoreState>()(
     (set) => ({
       items: [],
       customerId: undefined,
+      promotionCode: undefined,
 
       addItem: (item) =>
         set((state) => {
@@ -57,7 +63,9 @@ export const useCartStore = create<CartStoreState>()(
 
       setCustomer: (customerId) => set({ customerId }),
 
-      clearCart: () => set({ items: [], customerId: undefined }),
+      setPromotionCode: (promotionCode) => set({ promotionCode: promotionCode || undefined }),
+
+      clearCart: () => set({ items: [], customerId: undefined, promotionCode: undefined }),
     }),
     {
       name: "erp-pos-cart",

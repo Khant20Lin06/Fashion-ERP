@@ -1,12 +1,21 @@
 "use client"
 
-import { useEffect } from "react"
-import { useForm, useFieldArray } from "react-hook-form"
+import { useEffect, useMemo } from "react"
+import { useFieldArray, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Undo2 } from "lucide-react"
+import { QuantityInput } from "@/components/inventory/QuantityInput"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
+import { EmptyState } from "@/components/ui/empty-state"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Table,
@@ -16,80 +25,100 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-import { EmptyState } from "@/components/ui/empty-state"
-import { QuantityInput } from "@/components/inventory/QuantityInput"
+import { Textarea } from "@/components/ui/textarea"
+import { useCreateSalesReturn, useInvoices, useSalesReturns } from "../hooks/useInvoice"
 import { salesReturnFormSchema, type SalesReturnFormValues } from "../schemas/sales.schema"
-import { useInvoices, useCreateSalesReturn } from "../hooks/useInvoice"
-import type { PaymentMethod, ReturnType } from "../types"
 
-const typeOptions: { value: ReturnType; label: string }[] = [
-  { value: "product_return", label: "Product Return" },
-  { value: "exchange", label: "Exchange" },
-  { value: "refund", label: "Refund" },
-  { value: "store_credit", label: "Store Credit" },
-]
-
-const refundMethodOptions: { value: PaymentMethod | "store_credit"; label: string }[] = [
-  { value: "cash", label: "Cash" },
-  { value: "card", label: "Card" },
-  { value: "bank_transfer", label: "Bank Transfer" },
-  { value: "mobile_payment", label: "Mobile Payment" },
-  { value: "store_credit", label: "Store Credit" },
-]
-
-/** Returns & Refund form — select an invoice, choose products/quantities to return, and a refund method. */
+/** Returns form — create a return request only from confirmed, warehouse-backed invoices with remaining qty. */
 export function ReturnForm({ onCreated }: { onCreated?: () => void }) {
   const { data: invoices } = useInvoices()
+  const { data: salesReturns } = useSalesReturns()
   const createReturn = useCreateSalesReturn()
 
   const form = useForm<SalesReturnFormValues>({
     resolver: zodResolver(salesReturnFormSchema),
-    defaultValues: { invoiceId: "", type: "product_return", reason: "", refundMethod: "cash", items: [] },
+    defaultValues: { invoiceId: "", reason: "", notes: "", items: [] },
   })
 
-  const { fields, replace, update } = useFieldArray({ control: form.control, name: "items" })
+  const { fields, replace } = useFieldArray({ control: form.control, name: "items" })
   const invoiceId = form.watch("invoiceId")
-  const selectedInvoice = (invoices ?? []).find((i) => i.id === invoiceId)
+  const itemsError = Array.isArray(form.formState.errors.items) ? undefined : form.formState.errors.items?.message
+
+  const remainingByInvoiceId = useMemo(() => {
+    const map = new Map<string, Map<string, number>>()
+
+    for (const invoice of invoices ?? []) {
+      const lineItems = new Map<string, number>()
+      for (const item of invoice.items) {
+        lineItems.set(item.id, item.quantity)
+      }
+      map.set(invoice.id, lineItems)
+    }
+
+    for (const saleReturn of salesReturns ?? []) {
+      if (saleReturn.status === "cancelled") continue
+      const lineItems = map.get(saleReturn.saleId)
+      if (!lineItems) continue
+
+      for (const item of saleReturn.items) {
+        lineItems.set(item.saleItemId, Math.max((lineItems.get(item.saleItemId) ?? 0) - item.returnQty, 0))
+      }
+    }
+
+    return map
+  }, [invoices, salesReturns])
+
+  const availableInvoices = useMemo(
+    () =>
+      (invoices ?? []).filter((invoice) => {
+        if (invoice.status !== "CONFIRMED") return false
+        if (!invoice.warehouseId) return false
+        const lineItems = remainingByInvoiceId.get(invoice.id)
+        return Array.from(lineItems?.values() ?? []).some((remaining) => remaining > 0)
+      }),
+    [invoices, remainingByInvoiceId],
+  )
+
+  const selectedInvoice = availableInvoices.find((invoice) => invoice.id === invoiceId)
 
   useEffect(() => {
     if (!selectedInvoice) {
       replace([])
       return
     }
+
+    const remainingForInvoice = remainingByInvoiceId.get(selectedInvoice.id) ?? new Map<string, number>()
+
     replace(
       selectedInvoice.items.map((item) => ({
+        saleItemId: item.id,
         productId: item.productId,
         productName: item.productName,
         sku: item.sku,
         color: item.color,
         size: item.size,
         purchasedQty: item.quantity,
+        maxReturnableQty: Math.max(remainingForInvoice.get(item.id) ?? 0, 0),
         returnQty: 0,
         unitPrice: item.price,
-      }))
+        condition: "RESTOCK" as const,
+      })),
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedInvoice?.id])
+  }, [selectedInvoice?.id, remainingByInvoiceId])
 
   function onSubmit(values: SalesReturnFormValues) {
     const itemsToReturn = values.items.filter((item) => item.returnQty > 0)
     if (itemsToReturn.length === 0) return
+
     createReturn.mutate(
       { ...values, items: itemsToReturn },
       {
         onSuccess: () => {
-          form.reset({ invoiceId: "", type: "product_return", reason: "", refundMethod: "cash", items: [] })
+          form.reset({ invoiceId: "", reason: "", notes: "", items: [] })
           onCreated?.()
         },
-      }
+      },
     )
   }
 
@@ -114,13 +143,18 @@ export function ReturnForm({ onCreated }: { onCreated?: () => void }) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {(invoices ?? []).map((invoice) => (
+                      {availableInvoices.map((invoice) => (
                         <SelectItem key={invoice.id} value={invoice.id}>
                           {invoice.invoiceNumber} — {invoice.customerName}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {(invoices ?? []).length > 0 && availableInvoices.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      No confirmed invoices with a warehouse and remaining returnable items are available.
+                    </p>
+                  ) : null}
                   <FormMessage />
                 </FormItem>
               )}
@@ -133,60 +167,30 @@ export function ReturnForm({ onCreated }: { onCreated?: () => void }) {
             </FormItem>
             <FormField
               control={form.control}
-              name="type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Return Type</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {typeOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="refundMethod"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Refund Method</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {refundMethodOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="reason"
               render={({ field }) => (
                 <FormItem className="sm:col-span-2">
                   <FormLabel>Reason</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Reason for return…" rows={2} {...field} />
+                    <Textarea placeholder="Reason for return..." rows={2} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem className="sm:col-span-2">
+                  <FormLabel>Notes (optional)</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Add extra details for this return..."
+                      rows={2}
+                      {...field}
+                      value={field.value ?? ""}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -201,49 +205,81 @@ export function ReturnForm({ onCreated }: { onCreated?: () => void }) {
           </CardHeader>
           <CardContent>
             {fields.length === 0 ? (
-              <EmptyState title="Select an invoice" description="Line items will appear here once an invoice is selected." />
+              <EmptyState
+                title="Select an invoice"
+                description="Only invoices with a warehouse and remaining returnable quantity will appear here."
+              />
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Variant</TableHead>
-                    <TableHead>Purchased Qty</TableHead>
-                    <TableHead>Return Qty</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {fields.map((field, index) => (
-                    <TableRow key={field.id}>
-                      <TableCell>
-                        <p className="font-medium">{field.productName}</p>
-                        <p className="font-mono text-xs text-muted-foreground">{field.sku}</p>
-                      </TableCell>
-                      <TableCell>{[field.color, field.size].filter(Boolean).join(" / ") || "—"}</TableCell>
-                      <TableCell>{field.purchasedQty}</TableCell>
-                      <TableCell>
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.returnQty`}
-                          render={({ field: qtyField }) => (
-                            <FormItem>
-                              <FormControl>
-                                <QuantityInput
-                                  value={qtyField.value}
-                                  onChange={(value) => update(index, { ...field, returnQty: value })}
-                                  min={0}
-                                  max={field.purchasedQty}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </TableCell>
+              <div className="space-y-3">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Product</TableHead>
+                      <TableHead>Variant</TableHead>
+                      <TableHead>Purchased Qty</TableHead>
+                      <TableHead>Condition</TableHead>
+                      <TableHead>Return Qty</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {fields.map((field, index) => (
+                      <TableRow key={field.id}>
+                        <TableCell>
+                          <p className="font-medium">{field.productName}</p>
+                          <p className="font-mono text-xs text-muted-foreground">{field.sku}</p>
+                        </TableCell>
+                        <TableCell>{[field.color, field.size].filter(Boolean).join(" / ") || "—"}</TableCell>
+                        <TableCell>
+                          <p>{field.purchasedQty}</p>
+                          <p className="text-xs text-muted-foreground">Remaining: {field.maxReturnableQty}</p>
+                        </TableCell>
+                        <TableCell className="align-top">
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.condition`}
+                            render={({ field: conditionField }) => (
+                              <FormItem>
+                                <Select value={conditionField.value} onValueChange={conditionField.onChange}>
+                                  <FormControl>
+                                    <SelectTrigger className="w-[140px]">
+                                      <SelectValue placeholder="Select condition" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="RESTOCK">Restock</SelectItem>
+                                    <SelectItem value="DAMAGED">Damaged</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </TableCell>
+                        <TableCell className="align-top">
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.returnQty`}
+                            render={({ field: qtyField }) => (
+                              <FormItem>
+                                <FormControl>
+                                  <QuantityInput
+                                    value={qtyField.value}
+                                    onChange={qtyField.onChange}
+                                    min={0}
+                                    max={field.maxReturnableQty}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {itemsError ? <p className="text-sm font-medium text-destructive">{itemsError}</p> : null}
+              </div>
             )}
           </CardContent>
         </Card>

@@ -5,8 +5,11 @@ export type KpiMetric = {
   label: string
   value: number
   format: "currency" | "number" | "percent"
-  changePercent: number
-  trend: TrendDirection
+  // No period-over-period comparison endpoint exists backend-side — these
+  // are omitted (not fabricated as 0/"flat") when no real comparison was
+  // computed. KPICard hides the trend row entirely when absent.
+  changePercent?: number
+  trend?: TrendDirection
   comparisonLabel: string
 }
 
@@ -83,7 +86,8 @@ export type DashboardSummary = {
   recentOrders: RecentOrder[]
   topProducts: TopProduct[]
   lowStockItems: LowStockItem[]
-  customerAnalytics: CustomerAnalyticsSummary
+  /** No backend endpoint provides aggregate customer/loyalty counts (confirmed absent from the reports module) — undefined in real mode, populated only by mock data. */
+  customerAnalytics: CustomerAnalyticsSummary | undefined
 }
 
 /** Dashboard widget keys used for RBAC-based visibility filtering. */

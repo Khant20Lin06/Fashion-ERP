@@ -15,9 +15,11 @@ type LowStockAlertProps = {
   isError?: boolean
   onRetry?: () => void
   onReorder?: (item: LowStockItem) => void
+  /** True when the data source itself doesn't yet exist (vs. a genuinely-empty real result) — swaps the empty-state copy so "no alerts" isn't confused with "not tracked yet." */
+  unavailable?: boolean
 }
 
-export function LowStockAlert({ data, isLoading, isError, onRetry, onReorder }: LowStockAlertProps) {
+export function LowStockAlert({ data, isLoading, isError, onRetry, onReorder, unavailable }: LowStockAlertProps) {
   return (
     <Card>
       <CardHeader>
@@ -31,8 +33,12 @@ export function LowStockAlert({ data, isLoading, isError, onRetry, onReorder }: 
           <ErrorState message="Couldn't load stock alerts." onRetry={onRetry} />
         ) : !data || data.length === 0 ? (
           <EmptyState
-            title="All stock levels healthy"
-            description="No items are currently below their reorder level."
+            title={unavailable ? "Low stock tracking not yet available" : "All stock levels healthy"}
+            description={
+              unavailable
+                ? "Reorder-level tracking isn't supported by the backend yet."
+                : "No items are currently below their reorder level."
+            }
           />
         ) : (
           <ul className="divide-y divide-border">

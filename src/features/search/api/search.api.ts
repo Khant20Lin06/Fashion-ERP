@@ -1,3 +1,5 @@
+import { env } from "@/config/env"
+
 export type SearchResultType = "product" | "customer" | "invoice" | "supplier"
 
 export type SearchResult = {
@@ -8,6 +10,8 @@ export type SearchResult = {
   href: string
 }
 
+const USE_MOCK = env.NEXT_PUBLIC_USE_MOCK_AUTH
+
 const mockIndex: SearchResult[] = [
   { id: "p1", type: "product", title: "Classic Denim Jacket", subtitle: "SKU: DJ-001", href: "/dashboard/products" },
   { id: "p2", type: "product", title: "Floral Summer Dress", subtitle: "SKU: FD-014", href: "/dashboard/products" },
@@ -17,14 +21,15 @@ const mockIndex: SearchResult[] = [
   { id: "s1", type: "supplier", title: "Levi's Co.", subtitle: "Denim supplier", href: "/dashboard/purchase" },
 ]
 
-/**
- * Client-side mock search — swap for a real /search?q= API call once the
- * backend provides one. Kept synchronous-but-async-shaped so callers don't
- * need to change when a real network call replaces this.
- */
+// No cross-entity /search endpoint exists on the backend (BACKEND GAP,
+// confirmed via full controller inventory in Phase 11) — real mode returns
+// an honest empty result set (renders as "No results found for…") instead
+// of matching against a fabricated fixed index of fake products/customers.
 export async function searchGlobal(query: string): Promise<SearchResult[]> {
   const normalized = query.trim().toLowerCase()
   if (!normalized) return []
+
+  if (!USE_MOCK) return []
 
   return mockIndex.filter(
     (item) =>

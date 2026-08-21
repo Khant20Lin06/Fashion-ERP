@@ -69,6 +69,7 @@ export function StockMovementTable() {
     {
       accessorKey: "productName",
       header: ({ column }) => <ColumnHeader column={column} title="Product" />,
+      cell: ({ row }) => row.getValue("productName") || "—",
     },
     {
       accessorKey: "variantLabel",
@@ -78,6 +79,7 @@ export function StockMovementTable() {
     {
       accessorKey: "warehouseName",
       header: ({ column }) => <ColumnHeader column={column} title="Warehouse" />,
+      cell: ({ row }) => row.getValue("warehouseName") || "—",
     },
     {
       accessorKey: "qtyBefore",
@@ -105,6 +107,7 @@ export function StockMovementTable() {
     {
       accessorKey: "user",
       header: ({ column }) => <ColumnHeader column={column} title="User" />,
+      cell: ({ row }) => row.getValue("user") || "—",
     },
   ]
 

@@ -1,5 +1,6 @@
 import { useMutation } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { toastApiError } from "@/lib/api/errors"
 import { useAuthStore } from "@/stores/auth.store"
 import { changePassword, updateProfile } from "../api/account.api"
 import type { ProfileFormValues } from "../schemas/profile.schema"
@@ -15,7 +16,7 @@ export function useUpdateProfile() {
       setUser(updated)
       toast.success("Profile updated")
     },
-    onError: () => toast.error("Failed to update profile"),
+    onError: (error) => toastApiError(error, "Failed to update profile"),
   })
 }
 

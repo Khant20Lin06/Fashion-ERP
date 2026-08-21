@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { toastApiError } from "@/lib/api/errors"
 import {
   createPurchaseOrder,
   createPurchaseRequest,
@@ -32,7 +33,7 @@ export function useCreatePurchaseRequest() {
       queryClient.invalidateQueries({ queryKey: ["purchase-requests"] })
       toast.success("Purchase request created")
     },
-    onError: () => toast.error("Failed to create purchase request"),
+    onError: (error) => toastApiError(error, "Failed to create purchase request"),
   })
 }
 
@@ -45,7 +46,7 @@ export function useUpdatePurchaseRequestStatus() {
       queryClient.invalidateQueries({ queryKey: ["purchase-requests"] })
       toast.success("Purchase request updated")
     },
-    onError: () => toast.error("Failed to update purchase request"),
+    onError: (error) => toastApiError(error, "Failed to update purchase request"),
   })
 }
 
@@ -72,9 +73,12 @@ export function useCreatePurchaseOrder() {
     mutationFn: (values: PurchaseOrderFormValues) => createPurchaseOrder(values),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] })
+      queryClient.invalidateQueries({ queryKey: ["purchase", "kpis"] })
+      queryClient.invalidateQueries({ queryKey: ["purchase", "analytics"] })
+      queryClient.invalidateQueries({ queryKey: ["suppliers"] })
       toast.success("Purchase order created")
     },
-    onError: () => toast.error("Failed to create purchase order"),
+    onError: (error) => toastApiError(error, "Failed to create purchase order"),
   })
 }
 
@@ -82,11 +86,15 @@ export function useUpdatePurchaseOrderStatus() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: PurchaseOrderStatus }) => updatePurchaseOrderStatus(id, status),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] })
+      queryClient.invalidateQueries({ queryKey: ["purchase-orders", variables.id] })
+      queryClient.invalidateQueries({ queryKey: ["purchase", "kpis"] })
+      queryClient.invalidateQueries({ queryKey: ["purchase", "analytics"] })
+      queryClient.invalidateQueries({ queryKey: ["suppliers"] })
       toast.success("Purchase order updated")
     },
-    onError: () => toast.error("Failed to update purchase order"),
+    onError: (error) => toastApiError(error, "Failed to update purchase order"),
   })
 }
 

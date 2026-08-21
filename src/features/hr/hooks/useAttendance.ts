@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { toastApiError } from "@/lib/api/errors"
 import {
   createShift,
   deleteShift,
@@ -39,7 +40,7 @@ export function useCreateShift() {
       queryClient.invalidateQueries({ queryKey: ["hr", "shifts"] })
       toast.success("Shift created")
     },
-    onError: () => toast.error("Failed to create shift"),
+    onError: (error) => toastApiError(error, "Failed to create shift"),
   })
 }
 
@@ -51,7 +52,7 @@ export function useUpdateShift(id: string) {
       queryClient.invalidateQueries({ queryKey: ["hr", "shifts"] })
       toast.success("Shift updated")
     },
-    onError: () => toast.error("Failed to update shift"),
+    onError: (error) => toastApiError(error, "Failed to update shift"),
   })
 }
 
@@ -63,6 +64,6 @@ export function useDeleteShift() {
       queryClient.invalidateQueries({ queryKey: ["hr", "shifts"] })
       toast.success("Shift deleted")
     },
-    onError: () => toast.error("Failed to delete shift"),
+    onError: (error) => toastApiError(error, "Failed to delete shift"),
   })
 }

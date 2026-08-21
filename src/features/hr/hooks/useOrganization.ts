@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { toastApiError } from "@/lib/api/errors"
 import {
   createDepartment,
   fetchAnnouncements,
@@ -26,7 +27,7 @@ export function useCreateDepartment() {
       queryClient.invalidateQueries({ queryKey: ["hr", "departments"] })
       toast.success("Department created")
     },
-    onError: () => toast.error("Failed to create department"),
+    onError: (error) => toastApiError(error, "Failed to create department"),
   })
 }
 
@@ -38,7 +39,7 @@ export function useUpdateDepartment(id: string) {
       queryClient.invalidateQueries({ queryKey: ["hr", "departments"] })
       toast.success("Department updated")
     },
-    onError: () => toast.error("Failed to update department"),
+    onError: (error) => toastApiError(error, "Failed to update department"),
   })
 }
 

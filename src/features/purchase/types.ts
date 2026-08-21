@@ -1,23 +1,33 @@
 /** Core domain types for the Purchase & Supplier Management module. */
 
 export type SupplierType = "manufacturer" | "wholesaler" | "distributor" | "agent"
-export type SupplierStatus = "active" | "inactive"
+export type SupplierStatus = "active" | "inactive" | "blocked"
+
+export type PaymentTermOption = {
+  id: string
+  name: string
+  dueDays: number
+}
 
 export type Supplier = {
   id: string
   name: string
   code: string
+  paymentTermId?: string | null
   type: SupplierType
   status: SupplierStatus
   contactPerson: string
   phone: string
   email: string
   website?: string
-  address: string
-  country: string
+  address?: string
+  country?: string
   taxId?: string
+  creditDays?: number
+  openingBalance?: number
+  notes?: string
   paymentTerms: string
-  currency: string
+  currency?: string
   bankAccount?: string
   totalPurchase: number
   outstanding: number
@@ -82,6 +92,7 @@ export type PurchaseOrder = {
   date: string
   deliveryDate: string
   status: PurchaseOrderStatus
+  itemCount: number
   items: PurchaseLineItem[]
   subtotal: number
   taxTotal: number
@@ -141,16 +152,23 @@ export type PurchaseInvoice = {
 
 export type PaymentMethod = "cash" | "bank_transfer" | "credit" | "mobile_payment"
 
+/** A real backend PaymentMethod (GET /payment-methods) — company-configured, not a fixed enum. */
+export type PaymentMethodOption = {
+  id: string
+  name: string
+}
+
 export type SupplierPayment = {
   id: string
   reference: string
   supplierId: string
   supplierName: string
-  invoiceId: string
-  invoiceNumber: string
+  purchaseOrderId: string
+  poNumber: string
+  paymentMethodId: string
+  paymentMethodName: string
   paymentDate: string
   amount: number
-  method: PaymentMethod
   referenceNumber?: string
   notes?: string
 }

@@ -1,6 +1,7 @@
 "use client"
 
-import { MoreHorizontal, Pencil, Ruler, Trash2 } from "lucide-react"
+import { MoreHorizontal, Pencil, Ruler, ToggleLeft, ToggleRight, Trash2 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -12,7 +13,11 @@ import {
 import { EmptyState } from "@/components/ui/empty-state"
 import { ErrorState } from "@/components/ui/error-state"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useAttributeOptionsByKind, useDeleteAttributeOption } from "../hooks/useAttributes"
+import {
+  useAttributeOptionsByKind,
+  useDeleteAttributeOption,
+  useSetAttributeOptionStatus,
+} from "../hooks/useAttributes"
 import type { AttributeKind, AttributeOption } from "../types"
 
 type AttributeOptionListProps = {
@@ -24,6 +29,7 @@ type AttributeOptionListProps = {
 export function AttributeOptionList({ kind, onEdit }: AttributeOptionListProps) {
   const { data, isLoading, isError, refetch } = useAttributeOptionsByKind(kind)
   const { mutate: deleteOption } = useDeleteAttributeOption(kind)
+  const { mutate: setOptionStatus } = useSetAttributeOptionStatus(kind)
 
   if (isLoading) {
     return (
@@ -57,7 +63,15 @@ export function AttributeOptionList({ kind, onEdit }: AttributeOptionListProps) 
                 <Ruler className="size-4 text-muted-foreground" />
               </div>
             )}
-            <p className="min-w-0 flex-1 truncate text-sm font-semibold">{option.value}</p>
+            <div className="min-w-0 flex-1 space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <p className="truncate text-sm font-semibold">{option.value}</p>
+                <Badge variant={option.isActive ? "default" : "outline"} className="shrink-0">
+                  {option.isActive ? "Active" : "Inactive"}
+                </Badge>
+              </div>
+              <p className="truncate text-xs text-muted-foreground">{option.code}</p>
+            </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="size-7 shrink-0" aria-label="Option actions">
@@ -67,6 +81,10 @@ export function AttributeOptionList({ kind, onEdit }: AttributeOptionListProps) 
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => onEdit(option)}>
                   <Pencil /> Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setOptionStatus({ id: option.id, isActive: !option.isActive })}>
+                  {option.isActive ? <ToggleLeft /> : <ToggleRight />}
+                  {option.isActive ? "Deactivate" : "Activate"}
                 </DropdownMenuItem>
                 <DropdownMenuItem variant="destructive" onClick={() => deleteOption(option.id)}>
                   <Trash2 /> Delete

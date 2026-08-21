@@ -14,6 +14,8 @@ const typeLabels: Record<AdjustmentType, string> = {
   damaged_product: "Damaged Product",
   lost_item: "Lost Item",
   expired_item: "Expired Item",
+  found_item: "Found Item",
+  opening_balance: "Opening Balance",
   manual_correction: "Manual Correction",
 }
 
@@ -23,7 +25,7 @@ const statusVariant: Record<AdjustmentStatus, "default" | "secondary" | "destruc
   rejected: "destructive",
 }
 
-/** Recent stock adjustments — pending approval, approved, rejected. */
+/** Recent stock adjustments — applied immediately on the backend. */
 export function AdjustmentList() {
   const { data, isLoading, isError, refetch } = useStockAdjustments()
 
@@ -58,11 +60,13 @@ export function AdjustmentList() {
               </div>
               <p className="text-sm">
                 {adjustment.productName}
-                {adjustment.variantLabel ? ` (${adjustment.variantLabel})` : ""} · {adjustment.warehouseName}
+                {adjustment.variantLabel ? ` (${adjustment.variantLabel})` : ""}
+                {adjustment.sku ? ` - ${adjustment.sku}` : ""}
+                {` - ${adjustment.warehouseName}`}
               </p>
               <p className="text-xs text-muted-foreground">{adjustment.reason}</p>
               <p className="text-xs text-muted-foreground">
-                {adjustment.createdBy} · {formatRelativeTime(adjustment.createdAt)}
+                {adjustment.createdBy} - {formatRelativeTime(adjustment.createdAt)}
               </p>
             </div>
             <p className={adjustment.difference > 0 ? "font-semibold text-success" : adjustment.difference < 0 ? "font-semibold text-destructive" : "font-semibold"}>

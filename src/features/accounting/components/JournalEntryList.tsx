@@ -8,21 +8,10 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { TransactionStatus } from "@/components/accounting/TransactionStatus"
 import { formatCurrency, formatRelativeTime } from "@/lib/format"
 import { useJournalEntries, useUpdateJournalEntryStatus } from "../hooks/useLedger"
-import type { JournalStatus } from "../types"
 
-const nextStatus: Partial<Record<JournalStatus, JournalStatus>> = {
-  draft: "submitted",
-  submitted: "approved",
-  approved: "posted",
-}
-
-const nextStatusLabel: Partial<Record<JournalStatus, string>> = {
-  draft: "Submit",
-  submitted: "Approve",
-  approved: "Post",
-}
-
-/** Journal Entry workflow list: Draft -> Submitted -> Approved -> Posted. */
+/** Journal Entry list. Real backend lifecycle is Draft -> Posted (one-way,
+ * via POST /journal-entries/:id/post) or Draft -> Cancelled — no Submitted/
+ * Approved workflow exists (D12, LOCKED). */
 export function JournalEntryList() {
   const { data, isLoading, isError, refetch } = useJournalEntries()
   const { mutate: updateStatus, isPending } = useUpdateJournalEntryStatus()
@@ -47,7 +36,6 @@ export function JournalEntryList() {
     <div className="flex flex-col gap-3">
       {data.map((entry) => {
         const totalDebit = entry.lines.reduce((sum, line) => sum + line.debit, 0)
-        const upcoming = nextStatus[entry.status]
         return (
           <Card key={entry.id}>
             <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -61,9 +49,9 @@ export function JournalEntryList() {
                   {entry.lines.length} line(s) · {formatCurrency(totalDebit)} · {entry.createdBy} · {formatRelativeTime(entry.createdAt)}
                 </p>
               </div>
-              {upcoming && (
-                <Button size="sm" onClick={() => updateStatus({ id: entry.id, status: upcoming })} disabled={isPending}>
-                  {nextStatusLabel[entry.status]}
+              {entry.status === "draft" && (
+                <Button size="sm" onClick={() => updateStatus({ id: entry.id, status: "posted" })} disabled={isPending}>
+                  Post
                 </Button>
               )}
             </CardContent>

@@ -19,6 +19,7 @@ export const transferFormSchema = z
     fromWarehouseId: z.string().min(1, "From warehouse is required"),
     toWarehouseId: z.string().min(1, "To warehouse is required"),
     items: z.array(transferLineSchema).min(1, "Add at least one product to transfer"),
+    notes: z.string().max(1000, "Notes must be 1000 characters or less").optional(),
   })
   .refine((data) => data.fromWarehouseId !== data.toWarehouseId, {
     message: "From and To warehouses must be different",

@@ -5,9 +5,10 @@ import { RevenueTrendChart } from "@/features/sales/components/RevenueTrendChart
 import { TopSellingProducts } from "@/features/sales/components/TopSellingProducts"
 import { RecentTransactions } from "@/features/sales/components/RecentTransactions"
 import { useSalesKpis } from "@/features/sales/hooks/useSales"
+import { ErrorState } from "@/components/ui/error-state"
 
 export default function SalesDashboardPage() {
-  const { data: kpis, isLoading } = useSalesKpis()
+  const { data: kpis, isLoading, isError, refetch } = useSalesKpis()
 
   return (
     <div className="flex flex-col gap-6">
@@ -16,7 +17,11 @@ export default function SalesDashboardPage() {
         <p className="text-sm text-muted-foreground">Retail performance across POS, orders, and customers.</p>
       </div>
 
-      <SalesKpiSection kpis={kpis} isLoading={isLoading} />
+      {isError ? (
+        <ErrorState message="Couldn't load sales KPIs." onRetry={refetch} />
+      ) : (
+        <SalesKpiSection kpis={kpis} isLoading={isLoading} />
+      )}
 
       <RevenueTrendChart />
 

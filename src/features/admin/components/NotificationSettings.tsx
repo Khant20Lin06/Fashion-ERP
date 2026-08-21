@@ -1,41 +1,25 @@
 "use client"
 
-import { useState } from "react"
-import { Bell, Mail, MessageSquare, Smartphone } from "lucide-react"
+import { Bell } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { SettingsSection } from "@/components/admin/SettingsSection"
-import type { NotificationChannel } from "../types"
 
-const channelConfig: { channel: NotificationChannel; label: string; icon: typeof Bell }[] = [
-  { channel: "in_app", label: "In App", icon: Bell },
-  { channel: "email", label: "Email", icon: Mail },
-  { channel: "sms", label: "SMS", icon: MessageSquare },
-  { channel: "push", label: "Push Notification", icon: Smartphone },
-]
-
-/** Notification channel preferences — In App / Email / SMS / Push toggles. */
+/** Notification channel preferences. The real backend NotificationChannel
+ * enum has only one member — IN_APP — email/SMS/push are explicitly
+ * unimplemented, and there is no per-user/per-company notification
+ * preferences endpoint at all (BACKEND GAP, confirmed via source read).
+ * In-App is always on by design; shown disabled rather than fabricating a
+ * settings form with no backend to persist to. */
 export function NotificationSettings() {
-  const [enabled, setEnabled] = useState<Record<NotificationChannel, boolean>>({
-    in_app: true,
-    email: true,
-    sms: false,
-    push: true,
-  })
-
   return (
-    <SettingsSection title="Notification Channels" description="Choose how you want to receive notifications.">
-      {channelConfig.map(({ channel, label, icon: Icon }) => (
-        <div key={channel} className="flex items-center justify-between rounded-md border p-3">
-          <div className="flex items-center gap-2.5">
-            <Icon className="size-4 text-muted-foreground" />
-            <span className="text-sm font-medium">{label}</span>
-          </div>
-          <Switch
-            checked={enabled[channel]}
-            onCheckedChange={(checked) => setEnabled((prev) => ({ ...prev, [channel]: checked }))}
-          />
+    <SettingsSection title="Notification Channels" description="In-app notifications are always enabled. Email, SMS, and push channels are not yet supported by the backend.">
+      <div className="flex items-center justify-between rounded-md border p-3">
+        <div className="flex items-center gap-2.5">
+          <Bell className="size-4 text-muted-foreground" />
+          <span className="text-sm font-medium">In App</span>
         </div>
-      ))}
+        <Switch checked disabled />
+      </div>
     </SettingsSection>
   )
 }

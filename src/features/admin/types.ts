@@ -1,113 +1,81 @@
 // --- Users ---
-
-export type AdminUserStatus = "active" | "inactive" | "locked" | "pending"
+// Real UserStatus (backend, exact enum): ACTIVE | INACTIVE | SUSPENDED |
+// LOCKED. UserResponseDto has no phone/username/role/company/branch field
+// at all — those are separate concerns (Employee record, UserRole
+// assignment, UserCompany/UserBranch membership), joined in here for
+// display, never invented.
+export type AdminUserStatus = "active" | "inactive" | "suspended" | "locked"
 
 export type AdminUser = {
   id: string
   name: string
   email: string
-  phone: string
-  username: string
-  avatarUrl?: string
-  roleId: string
-  roleName: string
-  companyId: string
-  companyName: string
-  branchId: string
-  branchName: string
   status: AdminUserStatus
-  lastLoginAt?: string
+  isEmailVerified: boolean
+  roleNames: string[]
+  companyNames: string[]
+  lastLoginAt: string | null
   createdAt: string
 }
 
-export type LoginHistoryEntry = {
-  id: string
-  userId: string
-  timestamp: string
-  ipAddress: string
-  device: string
-  location: string
-  success: boolean
-}
-
-export type ActivityEntry = {
-  id: string
-  userId: string
-  action: string
-  module: string
-  timestamp: string
-}
-
 // --- Roles & Permissions ---
-
+// Real RoleStatus (backend, exact enum): ACTIVE | INACTIVE. Roles are
+// global (no companyId on the Role entity) and permission-gated only —
+// no DataScope/company-context applies to role CRUD itself.
 export type RoleStatus = "active" | "inactive"
 
 export type Role = {
   id: string
   name: string
+  code: string
   description: string
-  permissionGroups: string[]
-  userCount: number
   status: RoleStatus
-  isSystem: boolean
+  isSystemRole: boolean
+  permissionCodes: string[]
 }
 
-export type PermissionAction = "view" | "create" | "edit" | "delete" | "approve" | "export"
-
-export type PermissionMatrixRow = {
-  module: string
-  moduleLabel: string
-  actions: Record<PermissionAction, boolean>
-}
-
-export type RolePermissions = {
-  roleId: string
-  matrix: PermissionMatrixRow[]
-}
-
-export type PermissionScope = "company" | "branch" | "warehouse"
-
-export type UserPermissionOverride = {
+// A real, backend-seeded permission row (GET /permissions) — resource and
+// action are free-form strings backed by actual rows, not a closed
+// frontend-invented action set.
+export type Permission = {
   id: string
-  userId: string
-  module: string
-  action: PermissionAction
-  granted: boolean
-  scope?: PermissionScope
-  scopeValue?: string
+  resource: string
+  action: string
+  code: string
+  description: string | null
 }
 
 // --- Company & Branch ---
-
+// Real CompanyStatus/BranchStatus (backend, exact enum): ACTIVE | INACTIVE
+// for both. CompanyResponseDto/BranchResponseDto have no taxId,
+// fiscalYearStart, logoUrl, parentId, type, managerId, or warehouseId field
+// — none of those exist on the real entities.
 export type CompanyStatus = "active" | "inactive"
 
 export type Company = {
   id: string
+  code: string
   name: string
-  logoUrl?: string
-  taxId: string
-  currency: string
-  fiscalYearStart: string
-  address: string
   status: CompanyStatus
-  parentId?: string
+  baseCurrency: string
+  timezone: string
+  country: string
+  phone: string
+  email: string
+  address: string
 }
-
-export type BranchType = "head_office" | "retail_store" | "warehouse" | "outlet"
 
 export type Branch = {
   id: string
-  name: string
   code: string
+  name: string
   companyId: string
   companyName: string
-  type: BranchType
-  address: string
-  managerId?: string
-  managerName?: string
-  warehouseId?: string
-  warehouseName?: string
   status: CompanyStatus
+  phone: string
+  email: string
+  address: string
+  timezone: string
 }
 
 // --- Workflow ---
@@ -142,30 +110,22 @@ export type Workflow = {
 }
 
 // --- Notifications ---
-
-export type NotificationType =
-  | "system_alert"
-  | "approval_request"
-  | "stock_alert"
-  | "payment_reminder"
-  | "leave_request"
-  | "security_alert"
-
-export type NotificationChannel = "in_app" | "email" | "sms" | "push"
-
+// Real NotificationChannel (backend, exact enum): IN_APP only — email/SMS/
+// push are explicitly documented as unimplemented. Real notifications are
+// company-level, not per-user (Notification.userId is always null, by
+// locked design) — every notification with `notifications.read` for a
+// company is visible to everyone in it, there is no per-user targeting.
+// `eventType` is a free-form string set by the originating event (e.g.
+// "payment.confirmed"), not a closed frontend-invented type set. There is
+// no bulk "mark all read" endpoint — only one-at-a-time.
 export type AdminNotification = {
   id: string
-  type: NotificationType
+  eventType: string
   title: string
-  message: string
-  channel: NotificationChannel
+  body: string
   read: boolean
+  readAt: string | null
   createdAt: string
-}
-
-export type NotificationChannelSettings = {
-  channel: NotificationChannel
-  enabled: boolean
 }
 
 // --- Audit ---

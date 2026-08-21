@@ -8,14 +8,7 @@ import { PurchaseStatusBadge } from "@/components/purchase/PurchaseStatusBadge"
 import { formatCurrency, formatRelativeTime } from "@/lib/format"
 import { usePayments } from "../hooks/usePayments"
 
-const methodLabels: Record<string, string> = {
-  cash: "Cash",
-  bank_transfer: "Bank Transfer",
-  credit: "Credit",
-  mobile_payment: "Mobile Payment",
-}
-
-/** Recent supplier payments — reference, invoice, amount, method, and outstanding status. */
+/** Recent supplier payments — reference, purchase order, amount, method, and outstanding status. */
 export function PaymentStatus() {
   const { data, isLoading, isError, refetch } = usePayments()
 
@@ -43,7 +36,7 @@ export function PaymentStatus() {
             <div className="space-y-1">
               <p className="font-mono text-sm font-medium">{payment.reference}</p>
               <p className="text-sm text-muted-foreground">
-                {payment.supplierName} · {payment.invoiceNumber} · {methodLabels[payment.method]}
+                {payment.supplierName} · {payment.poNumber} · {payment.paymentMethodName}
               </p>
               <p className="text-xs text-muted-foreground">{formatRelativeTime(payment.paymentDate)}</p>
             </div>

@@ -24,14 +24,12 @@ type UserFormProps = {
   user?: AdminUser
 }
 
-const statusOptions = [
-  { value: "active", label: "Active" },
-  { value: "inactive", label: "Inactive" },
-  { value: "locked", label: "Locked" },
-  { value: "pending", label: "Pending" },
-] as const
-
-/** User create/edit form — Full Name, Email, Phone, Username, Password, Role, Company, Branch, Status. */
+/** User create/edit form — Full Name, Email, Password, and optional
+ * Role/Company/Branch assignment. There is no phone/username/status field
+ * on the real User entity — status is changed via activate/deactivate/lock
+ * actions elsewhere, not this form. Role/company/branch are separate
+ * join-table assignments, chained under the hood after the base user is
+ * created (see users.api.ts) rather than part of CreateUserDto itself. */
 export function UserForm({ user }: UserFormProps) {
   const router = useRouter()
   const isEditing = !!user
@@ -46,13 +44,10 @@ export function UserForm({ user }: UserFormProps) {
     defaultValues: {
       name: user?.name ?? "",
       email: user?.email ?? "",
-      phone: user?.phone ?? "",
-      username: user?.username ?? "",
       password: "",
-      roleId: user?.roleId ?? "",
-      companyId: user?.companyId ?? "",
-      branchId: user?.branchId ?? "",
-      status: user?.status ?? "pending",
+      roleId: "",
+      companyId: "",
+      branchId: "",
     },
   })
 
@@ -94,75 +89,27 @@ export function UserForm({ user }: UserFormProps) {
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="name@company.com" {...field} />
+                    <Input type="email" placeholder="name@company.com" {...field} disabled={isEditing} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Phone</FormLabel>
-                  <FormControl>
-                    <Input placeholder="+95 9 xxx xxx xxx" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="username"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Username</FormLabel>
-                  <FormControl>
-                    <Input placeholder="username" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{isEditing ? "New Password (optional)" : "Password"}</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Status</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
+            {!isEditing && (
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
+                      <Input type="password" placeholder="••••••••" {...field} />
                     </FormControl>
-                    <SelectContent>
-                      {statusOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
           </CardContent>
         </Card>
 

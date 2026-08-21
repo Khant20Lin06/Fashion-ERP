@@ -2,13 +2,14 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
+import { ErrorState } from "@/components/ui/error-state"
 import { Skeleton } from "@/components/ui/skeleton"
-import { formatCurrency, formatNumber, formatPercent } from "@/lib/format"
+import { formatCurrency, formatNumber } from "@/lib/format"
 import { useProductPerformance } from "../hooks/useSales"
 
 /** Top Selling Products widget for the Sales Dashboard, ranked by units sold. */
 export function TopSellingProducts() {
-  const { data, isLoading } = useProductPerformance()
+  const { data, isLoading, isError, refetch } = useProductPerformance()
   const topProducts = (data ?? []).slice().sort((a, b) => b.unitsSold - a.unitsSold).slice(0, 5)
 
   return (
@@ -19,6 +20,8 @@ export function TopSellingProducts() {
       <CardContent className="flex flex-col gap-3">
         {isLoading ? (
           Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)
+        ) : isError ? (
+          <ErrorState message="Couldn't load product performance." onRetry={refetch} />
         ) : topProducts.length === 0 ? (
           <EmptyState title="No sales data" description="Product performance will appear here once available." />
         ) : (
@@ -35,7 +38,6 @@ export function TopSellingProducts() {
               </div>
               <div className="text-right">
                 <p className="font-medium">{formatCurrency(product.revenue)}</p>
-                <p className="text-xs text-muted-foreground">{formatPercent(product.profitMargin)} margin</p>
               </div>
             </div>
           ))

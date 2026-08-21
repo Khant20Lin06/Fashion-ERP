@@ -21,9 +21,10 @@ import { useSuppliers, useDeleteSupplier } from "../hooks/useSuppliers"
 import { usePurchaseStore } from "../stores/purchase.store"
 import type { Supplier, SupplierStatus } from "../types"
 
-const statusVariant: Record<SupplierStatus, "default" | "outline"> = {
+const statusVariant: Record<SupplierStatus, "default" | "outline" | "destructive"> = {
   active: "default",
   inactive: "outline",
+  blocked: "destructive",
 }
 
 /** Supplier Master DataTable — the primary /purchase/suppliers list view. */
@@ -141,6 +142,7 @@ export function SupplierTable() {
           options: [
             { label: "Active", value: "active" },
             { label: "Inactive", value: "inactive" },
+            { label: "Blocked", value: "blocked" },
           ],
         },
       ]}

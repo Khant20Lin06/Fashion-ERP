@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { createPayment, fetchInvoices, fetchPayments } from "../api/payment.api"
+import { toastApiError } from "@/lib/api/errors"
+import { createPayment, fetchInvoices, fetchPaymentMethods, fetchPayments } from "../api/payment.api"
 import { createPurchaseReturn, fetchPurchaseReturns } from "../api/payment.api"
 import type { PaymentFormValues, PurchaseReturnFormValues } from "../schemas/payment.schema"
 
@@ -8,6 +9,13 @@ export function useInvoices() {
   return useQuery({
     queryKey: ["purchase-invoices"],
     queryFn: fetchInvoices,
+  })
+}
+
+export function usePaymentMethods() {
+  return useQuery({
+    queryKey: ["payment-methods"],
+    queryFn: fetchPaymentMethods,
   })
 }
 
@@ -25,9 +33,12 @@ export function useCreatePayment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["purchase-payments"] })
       queryClient.invalidateQueries({ queryKey: ["purchase-invoices"] })
+      queryClient.invalidateQueries({ queryKey: ["purchase", "kpis"] })
+      queryClient.invalidateQueries({ queryKey: ["purchase", "analytics"] })
+      queryClient.invalidateQueries({ queryKey: ["suppliers"] })
       toast.success("Payment recorded")
     },
-    onError: () => toast.error("Failed to record payment"),
+    onError: (error) => toastApiError(error, "Failed to record payment"),
   })
 }
 
@@ -46,6 +57,6 @@ export function useCreatePurchaseReturn() {
       queryClient.invalidateQueries({ queryKey: ["purchase-returns"] })
       toast.success("Purchase return submitted")
     },
-    onError: () => toast.error("Failed to submit purchase return"),
+    onError: (error) => toastApiError(error, "Failed to submit purchase return"),
   })
 }

@@ -18,51 +18,45 @@ import {
 import { SupplierSelector } from "@/components/purchase/SupplierSelector"
 import { formatCurrency } from "@/lib/format"
 import { paymentFormSchema, type PaymentFormValues } from "../schemas/payment.schema"
-import { useInvoices, useCreatePayment } from "../hooks/usePayments"
-import type { PaymentMethod } from "../types"
+import { useCreatePayment, usePaymentMethods } from "../hooks/usePayments"
+import { usePurchaseOrders } from "../hooks/usePurchaseOrders"
 
-const methodOptions: { value: PaymentMethod; label: string }[] = [
-  { value: "cash", label: "Cash" },
-  { value: "bank_transfer", label: "Bank Transfer" },
-  { value: "credit", label: "Credit" },
-  { value: "mobile_payment", label: "Mobile Payment" },
-]
-
-/** Supplier Payment form — pay against an outstanding invoice. */
+/** Supplier Payment form — pay against an outstanding purchase order. */
 export function PaymentForm({ onSubmitted }: { onSubmitted?: () => void }) {
-  const { data: invoices } = useInvoices()
+  const { data: purchaseOrders } = usePurchaseOrders()
+  const { data: paymentMethods } = usePaymentMethods()
   const createPayment = useCreatePayment()
 
   const form = useForm<PaymentFormValues>({
     resolver: zodResolver(paymentFormSchema),
     defaultValues: {
       supplierId: "",
-      invoiceId: "",
+      purchaseOrderId: "",
+      paymentMethodId: "",
       paymentDate: new Date().toISOString().slice(0, 10),
       amount: 0,
-      method: "bank_transfer",
       referenceNumber: "",
       notes: "",
     },
   })
 
   const supplierId = form.watch("supplierId")
-  const invoiceId = form.watch("invoiceId")
-  const supplierInvoices = (invoices ?? []).filter(
-    (invoice) => invoice.supplierId === supplierId && invoice.paymentStatus !== "paid"
+  const purchaseOrderId = form.watch("purchaseOrderId")
+  const supplierPurchaseOrders = (purchaseOrders ?? []).filter(
+    (order) => order.supplierId === supplierId && order.status !== "cancelled"
   )
-  const selectedInvoice = (invoices ?? []).find((i) => i.id === invoiceId)
-  const outstandingOnInvoice = selectedInvoice ? selectedInvoice.grandTotal - selectedInvoice.amountPaid : undefined
+  const selectedOrder = (purchaseOrders ?? []).find((o) => o.id === purchaseOrderId)
+  const outstandingOnOrder = selectedOrder ? selectedOrder.grandTotal : undefined
 
   function onSubmit(values: PaymentFormValues) {
     createPayment.mutate(values, {
       onSuccess: () => {
         form.reset({
           supplierId: "",
-          invoiceId: "",
+          purchaseOrderId: "",
+          paymentMethodId: "",
           paymentDate: new Date().toISOString().slice(0, 10),
           amount: 0,
-          method: "bank_transfer",
           referenceNumber: "",
           notes: "",
         })
@@ -90,7 +84,7 @@ export function PaymentForm({ onSubmitted }: { onSubmitted?: () => void }) {
                       value={field.value}
                       onChange={(id) => {
                         field.onChange(id)
-                        form.setValue("invoiceId", "")
+                        form.setValue("purchaseOrderId", "")
                       }}
                     />
                   </FormControl>
@@ -101,20 +95,20 @@ export function PaymentForm({ onSubmitted }: { onSubmitted?: () => void }) {
 
             <FormField
               control={form.control}
-              name="invoiceId"
+              name="purchaseOrderId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Invoice</FormLabel>
+                  <FormLabel>Purchase Order</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange} disabled={!supplierId}>
                     <FormControl>
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder={supplierId ? "Select invoice" : "Select a supplier first"} />
+                        <SelectValue placeholder={supplierId ? "Select purchase order" : "Select a supplier first"} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {supplierInvoices.map((invoice) => (
-                        <SelectItem key={invoice.id} value={invoice.id}>
-                          {invoice.invoiceNumber} — {formatCurrency(invoice.grandTotal - invoice.amountPaid)} due
+                      {supplierPurchaseOrders.map((order) => (
+                        <SelectItem key={order.id} value={order.id}>
+                          {order.poNumber} — {formatCurrency(order.grandTotal)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -143,7 +137,7 @@ export function PaymentForm({ onSubmitted }: { onSubmitted?: () => void }) {
               name="amount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Amount{outstandingOnInvoice !== undefined ? ` (${formatCurrency(outstandingOnInvoice)} due)` : ""}</FormLabel>
+                  <FormLabel>Amount{outstandingOnOrder !== undefined ? ` (${formatCurrency(outstandingOnOrder)} order total)` : ""}</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
@@ -160,20 +154,20 @@ export function PaymentForm({ onSubmitted }: { onSubmitted?: () => void }) {
 
             <FormField
               control={form.control}
-              name="method"
+              name="paymentMethodId"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Payment Method</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
                       <SelectTrigger className="w-full">
-                        <SelectValue />
+                        <SelectValue placeholder="Select payment method" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {methodOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
+                      {(paymentMethods ?? []).map((option) => (
+                        <SelectItem key={option.id} value={option.id}>
+                          {option.name}
                         </SelectItem>
                       ))}
                     </SelectContent>

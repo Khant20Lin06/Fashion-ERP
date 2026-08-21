@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server"
 import { loginSchema } from "@/features/auth/schemas/login.schema"
-import { loginRequest } from "@/features/auth/api/auth.api"
 import { createSessionCookie } from "@/lib/session"
 import { env } from "@/config/env"
 import type { AuthUser } from "@/types/user"
+import {
+  extractCookieByName,
+  fetchBackendAuthUser,
+  fetchBackendJson,
+} from "@/lib/backend-auth"
+
+const ACCESS_TOKEN_COOKIE_NAME = "fashion_erp_access_token"
 
 /**
  * POST /api/auth/login
@@ -30,6 +36,7 @@ export async function POST(request: Request) {
 
   try {
     let user: AuthUser
+    let setCookieHeaders: string[] = []
 
     if (env.NEXT_PUBLIC_USE_MOCK_AUTH) {
       // Development fallback so the scaffold is runnable before a real backend
@@ -37,15 +44,41 @@ export async function POST(request: Request) {
       // live ERP auth service.
       user = mockAuthenticate(email, password)
     } else {
-      const result = await loginRequest({ email, password })
-      user = result.user
+      const loginResponse = await fetchBackendJson<{ user: unknown }>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      })
+      setCookieHeaders = loginResponse.setCookieHeaders
+      const accessCookie = extractCookieByName(setCookieHeaders, ACCESS_TOKEN_COOKIE_NAME)
+      if (!accessCookie) {
+        return NextResponse.json(
+          { message: "Signed in, but the backend did not return a usable access token." },
+          { status: 502 }
+        )
+      }
+      user = await fetchBackendAuthUser(accessCookie)
     }
 
     await createSessionCookie(user.id, user.role)
 
-    return NextResponse.json({ user })
-  } catch {
-    return NextResponse.json({ message: "Invalid email or password" }, { status: 401 })
+    const response = NextResponse.json({ user })
+    // Relay every backend cookie (access token + refresh token) as its own
+    // separate Set-Cookie header — joining them into one string here would
+    // produce the same corrupted-cookie bug that .get("set-cookie") caused
+    // server-side (see fetchBackendJson).
+    for (const setCookieHeader of setCookieHeaders) {
+      response.headers.append("set-cookie", setCookieHeader)
+    }
+    return response
+  } catch (error: unknown) {
+    if ((error as { status?: number })?.status === 401) {
+      return NextResponse.json({ message: "Invalid email or password" }, { status: 401 })
+    }
+
+    return NextResponse.json(
+      { message: "Couldn't complete sign in right now. Please try again." },
+      { status: 502 }
+    )
   }
 }
 

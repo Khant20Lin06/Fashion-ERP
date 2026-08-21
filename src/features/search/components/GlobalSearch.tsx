@@ -13,9 +13,12 @@ import {
   CommandSeparator,
 } from "@/components/ui/command"
 import { Button } from "@/components/ui/button"
+import { env } from "@/config/env"
 import { useSearchStore } from "@/stores/search.store"
 import { useGlobalSearch } from "../hooks/use-global-search"
 import type { SearchResult, SearchResultType } from "../api/search.api"
+
+const USE_MOCK = env.NEXT_PUBLIC_USE_MOCK_AUTH
 
 const iconByType: Record<SearchResultType, React.ComponentType<{ className?: string }>> = {
   product: Package,
@@ -103,7 +106,11 @@ export function GlobalSearch() {
         )}
 
         {!showRecent && query.trim().length > 0 && !isFetching && (!results || results.length === 0) && (
-          <CommandEmpty>No results found for &ldquo;{query}&rdquo;</CommandEmpty>
+          <CommandEmpty>
+            {USE_MOCK
+              ? `No results found for "${query}"`
+              : "Global search isn't available yet — no backend search endpoint exists. Use each module's own list/filter to find records."}
+          </CommandEmpty>
         )}
 
         {Object.entries(groupedResults).map(([type, items]) => (

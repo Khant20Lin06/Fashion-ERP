@@ -23,8 +23,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .then(({ data }) => {
         if (!cancelled) setUser(data.user)
       })
-      .catch(() => {
-        if (!cancelled) clearUser()
+      .catch((err) => {
+        if (!cancelled) {
+          clearUser()
+          // Backend JWT expired / session invalid → redirect to login
+          if (err?.response?.status === 401 && window.location.pathname !== "/login") {
+            window.location.replace("/login")
+          }
+        }
       })
 
     return () => {

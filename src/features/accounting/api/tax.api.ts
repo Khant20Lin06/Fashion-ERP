@@ -1,4 +1,3 @@
-import { apiClient } from "@/lib/api/client"
 import { env } from "@/config/env"
 import type { TaxRule, TaxType } from "../types"
 import { mockTaxRules } from "./mock-data"
@@ -17,10 +16,16 @@ export type TaxRuleFormValues = {
   isActive: boolean
 }
 
+// No tax entity, controller, or DTO exists anywhere in the backend beyond
+// the pass-through `taxAmount` line field on Sale/PurchaseOrder items (no
+// rate engine behind it) — confirmed by a whole-repo grep for tax
+// controllers/routes. Genuine BACKEND GAP, not a frontend bug: there is no
+// `/accounting/tax` (or any) route to call. Mock-only until such a concept
+// is added server-side.
+
 export async function fetchTaxRules(): Promise<TaxRule[]> {
   if (USE_MOCK) return delay(mockTaxRules)
-  const { data } = await apiClient.get<TaxRule[]>("/accounting/tax")
-  return data
+  return []
 }
 
 export async function createTaxRule(values: TaxRuleFormValues): Promise<TaxRule> {
@@ -37,8 +42,7 @@ export async function createTaxRule(values: TaxRuleFormValues): Promise<TaxRule>
       isActive: values.isActive,
     })
   }
-  const { data } = await apiClient.post<TaxRule>("/accounting/tax", values)
-  return data
+  throw new Error("Tax rules are not available yet.")
 }
 
 export async function toggleTaxRule(id: string, isActive: boolean): Promise<TaxRule> {
@@ -47,6 +51,5 @@ export async function toggleTaxRule(id: string, isActive: boolean): Promise<TaxR
     if (!existing) throw new Error("Tax rule not found")
     return delay({ ...existing, isActive })
   }
-  const { data } = await apiClient.patch<TaxRule>(`/accounting/tax/${id}`, { isActive })
-  return data
+  throw new Error("Tax rules are not available yet.")
 }

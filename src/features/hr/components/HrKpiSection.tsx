@@ -1,5 +1,6 @@
 import { CalendarClock, UserCheck, UserPlus, Users } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatNumber, formatPercent } from "@/lib/format"
 import type { HrKpis } from "../types"
@@ -11,7 +12,7 @@ type HrKpiSectionProps = {
 
 /** The four HR Dashboard KPI tiles: Total Employees, Present Today, On Leave, New Employees. */
 export function HrKpiSection({ kpis, isLoading }: HrKpiSectionProps) {
-  if (isLoading || !kpis) {
+  if (isLoading) {
     return (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
@@ -27,6 +28,17 @@ export function HrKpiSection({ kpis, isLoading }: HrKpiSectionProps) {
           </Card>
         ))}
       </div>
+    )
+  }
+
+  // No HR KPI/dashboard endpoint exists on the backend — this is a
+  // confirmed, permanent gap, not a loading or error state.
+  if (!kpis) {
+    return (
+      <EmptyState
+        title="HR overview not available"
+        description="No backend endpoint provides aggregate HR metrics yet."
+      />
     )
   }
 

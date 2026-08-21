@@ -1,33 +1,47 @@
 /**
- * Shared API response envelope types, used across every feature module's api/ layer.
+ * Shared API response/error shapes, matching the backend contract exactly
+ * (see erp-pos fashion api: src/common/filters/http-exception.filter.ts and
+ * src/shared/dto/pagination.dto.ts). Feature api/ layers should type their
+ * responses against these rather than inventing ad-hoc shapes.
  */
 
-export type ApiSuccess<T> = {
-  success: true
-  data: T
-  message?: string
-}
-
-export type ApiError = {
-  success: false
-  message: string
-  errors?: Record<string, string[]>
-  statusCode?: number
-}
-
-export type ApiResponse<T> = ApiSuccess<T> | ApiError
-
-export type PaginatedData<T> = {
-  items: T[]
+export type PaginationMeta = {
   page: number
-  pageSize: number
-  totalItems: number
-  totalPages: number
+  limit: number
+  total: number
+}
+
+export type PaginatedResponse<T> = {
+  data: T[]
+  meta: PaginationMeta
 }
 
 export type PaginationParams = {
   page?: number
-  pageSize?: number
-  sortBy?: string
-  sortOrder?: "asc" | "desc"
+  limit?: number
+  sort?: string
+  order?: "ASC" | "DESC"
 }
+
+/** Error envelope returned by the backend's GlobalExceptionFilter on every non-2xx response. */
+export type ApiErrorBody = {
+  success: false
+  statusCode: number
+  code: string
+  message: string
+  path?: string
+  timestamp?: string
+  requestId?: string
+}
+
+export type ApiErrorCode =
+  | "VALIDATION_ERROR"
+  | "UNAUTHORIZED"
+  | "FORBIDDEN"
+  | "NOT_FOUND"
+  | "CONFLICT"
+  | "UNPROCESSABLE_ENTITY"
+  | "RATE_LIMITED"
+  | "INTERNAL_ERROR"
+  | "NETWORK_ERROR"
+  | "UNKNOWN_ERROR"

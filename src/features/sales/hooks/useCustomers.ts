@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { toastApiError } from "@/lib/api/errors"
 import {
   createCustomer,
   deleteCustomer,
@@ -13,7 +14,7 @@ import type { CustomerFormValues } from "../schemas/customer.schema"
 export function useCustomers() {
   return useQuery({
     queryKey: ["customers"],
-    queryFn: fetchCustomers,
+    queryFn: () => fetchCustomers(),
   })
 }
 
@@ -41,7 +42,7 @@ export function useCreateCustomer() {
       queryClient.invalidateQueries({ queryKey: ["customers"] })
       toast.success("Customer created")
     },
-    onError: () => toast.error("Failed to create customer"),
+    onError: (error) => toastApiError(error, "Failed to create customer"),
   })
 }
 
@@ -54,7 +55,7 @@ export function useUpdateCustomer(id: string) {
       queryClient.invalidateQueries({ queryKey: ["customers", id] })
       toast.success("Customer updated")
     },
-    onError: () => toast.error("Failed to update customer"),
+    onError: (error) => toastApiError(error, "Failed to update customer"),
   })
 }
 
@@ -66,6 +67,6 @@ export function useDeleteCustomer() {
       queryClient.invalidateQueries({ queryKey: ["customers"] })
       toast.success("Customer deleted")
     },
-    onError: () => toast.error("Failed to delete customer"),
+    onError: (error) => toastApiError(error, "Failed to delete customer"),
   })
 }

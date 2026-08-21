@@ -22,7 +22,11 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-import { brandFormSchema, type BrandFormValues } from "../schemas/product.schema"
+import {
+  brandFormSchema,
+  type BrandFormInput,
+  type BrandFormValues,
+} from "../schemas/product.schema"
 import { useCreateBrand, useUpdateBrand } from "../hooks/useBrands"
 import type { Brand } from "../types"
 
@@ -38,9 +42,10 @@ export function BrandFormDialog({ open, onOpenChange, brand }: BrandFormDialogPr
   const updateBrand = useUpdateBrand(brand?.id ?? "")
   const isEditing = !!brand
 
-  const form = useForm<BrandFormValues>({
+  const form = useForm<BrandFormInput, unknown, BrandFormValues>({
     resolver: zodResolver(brandFormSchema),
     defaultValues: {
+      code: brand?.code ?? "",
       name: brand?.name ?? "",
       country: brand?.country ?? "",
       description: brand?.description ?? "",
@@ -51,6 +56,7 @@ export function BrandFormDialog({ open, onOpenChange, brand }: BrandFormDialogPr
   useEffect(() => {
     if (open) {
       form.reset({
+        code: brand?.code ?? "",
         name: brand?.name ?? "",
         country: brand?.country ?? "",
         description: brand?.description ?? "",
@@ -73,6 +79,31 @@ export function BrandFormDialog({ open, onOpenChange, brand }: BrandFormDialogPr
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
+            <FormField
+              control={form.control}
+              name="code"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Brand Code</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="e.g. NIKE"
+                      {...field}
+                      value={typeof field.value === "string" ? field.value : ""}
+                      readOnly={isEditing}
+                      onChange={(event) => field.onChange(event.target.value.toUpperCase())}
+                    />
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    {isEditing
+                      ? "Brand code cannot be changed after creation."
+                      : "Optional. Leave blank to auto-generate. Use uppercase letters, numbers, - and _ only."}
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name="name"

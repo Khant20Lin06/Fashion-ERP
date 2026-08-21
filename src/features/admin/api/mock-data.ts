@@ -1,6 +1,5 @@
 import type {
   ActiveSession,
-  ActivityEntry,
   AdminAuditEntry,
   AdminKpis,
   AdminNotification,
@@ -11,10 +10,9 @@ import type {
   GeneralSettings,
   Integration,
   LocalizationSettings,
-  LoginHistoryEntry,
   ModuleStatus,
+  Permission,
   Role,
-  RolePermissions,
   SecurityEvent,
   SecuritySettings,
   SystemActivityPoint,
@@ -31,32 +29,39 @@ const minutesAgo = (n: number) => new Date(now - n * 60000).toISOString()
 export const mockCompanies: Company[] = [
   {
     id: "co-1",
+    code: "MMFASHION",
     name: "Myanmar Fashion Co.",
-    taxId: "MM-TAX-10293",
-    currency: "MMK",
-    fiscalYearStart: "04-01",
-    address: "No. 45, Pyay Road, Yangon, Myanmar",
     status: "active",
+    baseCurrency: "MMK",
+    timezone: "Asia/Yangon",
+    country: "Myanmar",
+    phone: "",
+    email: "",
+    address: "No. 45, Pyay Road, Yangon, Myanmar",
   },
   {
     id: "co-2",
+    code: "THFASHION",
     name: "Thailand Fashion Co.",
-    taxId: "TH-TAX-58211",
-    currency: "THB",
-    fiscalYearStart: "01-01",
-    address: "88 Sukhumvit Rd, Bangkok, Thailand",
     status: "active",
-    parentId: "co-1",
+    baseCurrency: "THB",
+    timezone: "Asia/Bangkok",
+    country: "Thailand",
+    phone: "",
+    email: "",
+    address: "88 Sukhumvit Rd, Bangkok, Thailand",
   },
   {
     id: "co-3",
+    code: "SGFASHION",
     name: "Singapore Fashion Co.",
-    taxId: "SG-TAX-77410",
-    currency: "SGD",
-    fiscalYearStart: "01-01",
-    address: "1 Orchard Road, Singapore",
     status: "active",
-    parentId: "co-1",
+    baseCurrency: "SGD",
+    timezone: "Asia/Singapore",
+    country: "Singapore",
+    phone: "",
+    email: "",
+    address: "1 Orchard Road, Singapore",
   },
 ]
 
@@ -65,170 +70,118 @@ export const mockCompanies: Company[] = [
 export const mockBranches: Branch[] = [
   {
     id: "br-1",
-    name: "Head Office",
     code: "HO-YGN",
+    name: "Head Office",
     companyId: "co-1",
     companyName: "Myanmar Fashion Co.",
-    type: "head_office",
-    address: "No. 45, Pyay Road, Yangon",
-    managerId: "usr-1",
-    managerName: "Aung Min Thu",
     status: "active",
+    phone: "",
+    email: "",
+    address: "No. 45, Pyay Road, Yangon",
+    timezone: "Asia/Yangon",
   },
   {
     id: "br-2",
-    name: "Junction Square Store",
     code: "RT-JS01",
+    name: "Junction Square Store",
     companyId: "co-1",
     companyName: "Myanmar Fashion Co.",
-    type: "retail_store",
-    address: "Junction Square, Kamayut, Yangon",
-    managerId: "usr-3",
-    managerName: "Su Myat Noe",
-    warehouseId: "wh-1",
-    warehouseName: "Yangon Central Warehouse",
     status: "active",
+    phone: "",
+    email: "",
+    address: "Junction Square, Kamayut, Yangon",
+    timezone: "Asia/Yangon",
   },
   {
     id: "br-3",
-    name: "Yangon Central Warehouse",
     code: "WH-YGN01",
+    name: "Yangon Central Warehouse",
     companyId: "co-1",
     companyName: "Myanmar Fashion Co.",
-    type: "warehouse",
-    address: "Industrial Zone 3, Hlaing Tharyar, Yangon",
     status: "active",
+    phone: "",
+    email: "",
+    address: "Industrial Zone 3, Hlaing Tharyar, Yangon",
+    timezone: "Asia/Yangon",
   },
   {
     id: "br-4",
-    name: "Myaing Outlet",
     code: "OT-MYG01",
+    name: "Myaing Outlet",
     companyId: "co-1",
     companyName: "Myanmar Fashion Co.",
-    type: "outlet",
-    address: "Bogyoke Market Annex, Yangon",
     status: "active",
+    phone: "",
+    email: "",
+    address: "Bogyoke Market Annex, Yangon",
+    timezone: "Asia/Yangon",
   },
   {
     id: "br-5",
-    name: "Siam Paragon Store",
     code: "RT-BKK01",
+    name: "Siam Paragon Store",
     companyId: "co-2",
     companyName: "Thailand Fashion Co.",
-    type: "retail_store",
-    address: "Siam Paragon, Bangkok",
     status: "active",
+    phone: "",
+    email: "",
+    address: "Siam Paragon, Bangkok",
+    timezone: "Asia/Bangkok",
   },
   {
     id: "br-6",
-    name: "Orchard Central Store",
     code: "RT-SGP01",
+    name: "Orchard Central Store",
     companyId: "co-3",
     companyName: "Singapore Fashion Co.",
-    type: "retail_store",
-    address: "Orchard Central, Singapore",
     status: "active",
+    phone: "",
+    email: "",
+    address: "Orchard Central, Singapore",
+    timezone: "Asia/Singapore",
   },
 ]
 
 // --- Roles ---
 
 export const mockRoles: Role[] = [
-  { id: "role-1", name: "Super Admin", description: "Full system access across all companies and branches.", permissionGroups: ["all"], userCount: 2, status: "active", isSystem: true },
-  { id: "role-2", name: "Company Admin", description: "Administrative access scoped to a single company.", permissionGroups: ["users", "settings", "reports"], userCount: 3, status: "active", isSystem: true },
-  { id: "role-3", name: "Store Manager", description: "Manages daily store operations, staff, and sales.", permissionGroups: ["sales", "inventory", "hr"], userCount: 8, status: "active", isSystem: false },
-  { id: "role-4", name: "Cashier", description: "Processes sales transactions at the point of sale.", permissionGroups: ["pos"], userCount: 24, status: "active", isSystem: false },
-  { id: "role-5", name: "Inventory Manager", description: "Manages stock levels, transfers, and warehouse operations.", permissionGroups: ["inventory", "purchase"], userCount: 6, status: "active", isSystem: false },
-  { id: "role-6", name: "Accountant", description: "Manages ledgers, payments, and financial reporting.", permissionGroups: ["accounting"], userCount: 4, status: "active", isSystem: false },
-  { id: "role-7", name: "HR Manager", description: "Manages employees, attendance, and payroll.", permissionGroups: ["hr"], userCount: 3, status: "active", isSystem: false },
-  { id: "role-8", name: "Employee", description: "Basic self-service access only.", permissionGroups: ["ess"], userCount: 62, status: "active", isSystem: true },
+  { id: "role-1", name: "Super Admin", code: "SUPER_ADMIN", description: "Full system access across all companies and branches.", status: "active", isSystemRole: true, permissionCodes: [] },
+  { id: "role-2", name: "Company Admin", code: "COMPANY_ADMIN", description: "Administrative access scoped to a single company.", status: "active", isSystemRole: true, permissionCodes: [] },
+  { id: "role-3", name: "Store Manager", code: "STORE_MANAGER", description: "Manages daily store operations, staff, and sales.", status: "active", isSystemRole: false, permissionCodes: [] },
+  { id: "role-4", name: "Cashier", code: "CASHIER", description: "Processes sales transactions at the point of sale.", status: "active", isSystemRole: false, permissionCodes: [] },
+  { id: "role-5", name: "Inventory Manager", code: "INVENTORY_MANAGER", description: "Manages stock levels, transfers, and warehouse operations.", status: "active", isSystemRole: false, permissionCodes: [] },
+  { id: "role-6", name: "Accountant", code: "ACCOUNTANT", description: "Manages ledgers, payments, and financial reporting.", status: "active", isSystemRole: false, permissionCodes: [] },
+  { id: "role-7", name: "HR Manager", code: "HR_MANAGER", description: "Manages employees, attendance, and payroll.", status: "active", isSystemRole: false, permissionCodes: [] },
+  { id: "role-8", name: "Employee", code: "EMPLOYEE", description: "Basic self-service access only.", status: "active", isSystemRole: true, permissionCodes: [] },
 ]
 
-const moduleLabels: { module: string; moduleLabel: string }[] = [
-  { module: "product", moduleLabel: "Product" },
-  { module: "inventory", moduleLabel: "Inventory" },
-  { module: "sales", moduleLabel: "Sales" },
-  { module: "purchase", moduleLabel: "Purchase" },
-  { module: "accounting", moduleLabel: "Accounting" },
-  { module: "hr", moduleLabel: "HR" },
-  { module: "reports", moduleLabel: "Reports" },
-  { module: "admin", moduleLabel: "Administration" },
+export const mockPermissions: Permission[] = [
+  { id: "perm-1", resource: "products", action: "read", code: "products.read", description: null },
+  { id: "perm-2", resource: "products", action: "create", code: "products.create", description: null },
+  { id: "perm-3", resource: "sales", action: "read", code: "sales.read", description: null },
+  { id: "perm-4", resource: "sales", action: "create", code: "sales.create", description: null },
+  { id: "perm-5", resource: "inventory", action: "read", code: "inventory.read", description: null },
+  { id: "perm-6", resource: "purchase_orders", action: "read", code: "purchase_orders.read", description: null },
+  { id: "perm-7", resource: "accounts", action: "read", code: "accounts.read", description: null },
+  { id: "perm-8", resource: "employees", action: "read", code: "employees.read", description: null },
+  { id: "perm-9", resource: "users", action: "read", code: "users.read", description: null },
+  { id: "perm-10", resource: "roles", action: "read", code: "roles.read", description: null },
 ]
-
-function buildMatrix(overrides: Record<string, Partial<Record<string, boolean>>>): RolePermissions["matrix"] {
-  return moduleLabels.map(({ module, moduleLabel }) => ({
-    module,
-    moduleLabel,
-    actions: {
-      view: overrides[module]?.view ?? false,
-      create: overrides[module]?.create ?? false,
-      edit: overrides[module]?.edit ?? false,
-      delete: overrides[module]?.delete ?? false,
-      approve: overrides[module]?.approve ?? false,
-      export: overrides[module]?.export ?? false,
-    },
-  }))
-}
-
-export const mockRolePermissions: Record<string, RolePermissions> = {
-  "role-1": {
-    roleId: "role-1",
-    matrix: buildMatrix(
-      Object.fromEntries(moduleLabels.map(({ module }) => [module, { view: true, create: true, edit: true, delete: true, approve: true, export: true }]))
-    ),
-  },
-  "role-3": {
-    roleId: "role-3",
-    matrix: buildMatrix({
-      product: { view: true, create: true, edit: true },
-      inventory: { view: true, create: true, edit: true },
-      sales: { view: true, create: true, edit: true, approve: true },
-      hr: { view: true },
-    }),
-  },
-  "role-4": {
-    roleId: "role-4",
-    matrix: buildMatrix({
-      sales: { view: true, create: true },
-      product: { view: true },
-    }),
-  },
-  "role-6": {
-    roleId: "role-6",
-    matrix: buildMatrix({
-      accounting: { view: true, create: true, edit: true, approve: true, export: true },
-      reports: { view: true, export: true },
-    }),
-  },
-}
 
 // --- Users ---
 
 export const mockUsers: AdminUser[] = [
-  { id: "usr-1", name: "Aung Min Thu", email: "aung.minthu@myanmarfashion.com", phone: "+95 9 421 555 001", username: "aungminthu", roleId: "role-1", roleName: "Super Admin", companyId: "co-1", companyName: "Myanmar Fashion Co.", branchId: "br-1", branchName: "Head Office", status: "active", lastLoginAt: minutesAgo(12), createdAt: daysAgo(720) },
-  { id: "usr-2", name: "Nilar Win", email: "nilar.win@myanmarfashion.com", phone: "+95 9 421 555 002", username: "nilarwin", roleId: "role-2", roleName: "Company Admin", companyId: "co-1", companyName: "Myanmar Fashion Co.", branchId: "br-1", branchName: "Head Office", status: "active", lastLoginAt: hoursAgo(3), createdAt: daysAgo(600) },
-  { id: "usr-3", name: "Su Myat Noe", email: "su.myatnoe@myanmarfashion.com", phone: "+95 9 421 555 003", username: "sumyatnoe", roleId: "role-3", roleName: "Store Manager", companyId: "co-1", companyName: "Myanmar Fashion Co.", branchId: "br-2", branchName: "Junction Square Store", status: "active", lastLoginAt: hoursAgo(1), createdAt: daysAgo(500) },
-  { id: "usr-4", name: "Ye Htut", email: "ye.htut@myanmarfashion.com", phone: "+95 9 421 555 004", username: "yehtut", roleId: "role-4", roleName: "Cashier", companyId: "co-1", companyName: "Myanmar Fashion Co.", branchId: "br-2", branchName: "Junction Square Store", status: "active", lastLoginAt: minutesAgo(45), createdAt: daysAgo(300) },
-  { id: "usr-5", name: "Thida Aye", email: "thida.aye@myanmarfashion.com", phone: "+95 9 421 555 005", username: "thidaaye", roleId: "role-5", roleName: "Inventory Manager", companyId: "co-1", companyName: "Myanmar Fashion Co.", branchId: "br-3", branchName: "Yangon Central Warehouse", status: "active", lastLoginAt: daysAgo(1), createdAt: daysAgo(400) },
-  { id: "usr-6", name: "Kyaw Zin Latt", email: "kyaw.zinlatt@myanmarfashion.com", phone: "+95 9 421 555 006", username: "kyawzinlatt", roleId: "role-6", roleName: "Accountant", companyId: "co-1", companyName: "Myanmar Fashion Co.", branchId: "br-1", branchName: "Head Office", status: "active", lastLoginAt: hoursAgo(6), createdAt: daysAgo(450) },
-  { id: "usr-7", name: "Ei Ei Phyo", email: "eiei.phyo@myanmarfashion.com", phone: "+95 9 421 555 007", username: "eieiphyo", roleId: "role-7", roleName: "HR Manager", companyId: "co-1", companyName: "Myanmar Fashion Co.", branchId: "br-1", branchName: "Head Office", status: "active", lastLoginAt: daysAgo(2), createdAt: daysAgo(380) },
-  { id: "usr-8", name: "Zaw Naing", email: "zaw.naing@myanmarfashion.com", phone: "+95 9 421 555 008", username: "zawnaing", roleId: "role-8", roleName: "Employee", companyId: "co-1", companyName: "Myanmar Fashion Co.", branchId: "br-4", branchName: "Myaing Outlet", status: "inactive", lastLoginAt: daysAgo(30), createdAt: daysAgo(200) },
-  { id: "usr-9", name: "Somchai Prasert", email: "somchai.prasert@thailandfashion.com", phone: "+66 8 1234 5678", username: "somchaip", roleId: "role-3", roleName: "Store Manager", companyId: "co-2", companyName: "Thailand Fashion Co.", branchId: "br-5", branchName: "Siam Paragon Store", status: "active", lastLoginAt: hoursAgo(2), createdAt: daysAgo(250) },
-  { id: "usr-10", name: "Wei Ling Tan", email: "weiling.tan@singaporefashion.com", phone: "+65 9123 4567", username: "weilingtan", roleId: "role-3", roleName: "Store Manager", companyId: "co-3", companyName: "Singapore Fashion Co.", branchId: "br-6", branchName: "Orchard Central Store", status: "locked", lastLoginAt: daysAgo(10), createdAt: daysAgo(220) },
-  { id: "usr-11", name: "Hla Hla Win", email: "hlahla.win@myanmarfashion.com", phone: "+95 9 421 555 011", username: "hlahlawin", roleId: "role-4", roleName: "Cashier", companyId: "co-1", companyName: "Myanmar Fashion Co.", branchId: "br-4", branchName: "Myaing Outlet", status: "pending", createdAt: daysAgo(5) },
-]
-
-export const mockLoginHistory: LoginHistoryEntry[] = [
-  { id: "lh-1", userId: "usr-1", timestamp: minutesAgo(12), ipAddress: "103.5.20.11", device: "Chrome on Windows", location: "Yangon, Myanmar", success: true },
-  { id: "lh-2", userId: "usr-1", timestamp: daysAgo(1), ipAddress: "103.5.20.11", device: "Chrome on Windows", location: "Yangon, Myanmar", success: true },
-  { id: "lh-3", userId: "usr-1", timestamp: daysAgo(2), ipAddress: "45.121.88.4", device: "Safari on iPhone", location: "Yangon, Myanmar", success: true },
-  { id: "lh-4", userId: "usr-10", timestamp: daysAgo(10), ipAddress: "175.41.22.9", device: "Chrome on macOS", location: "Singapore", success: false },
-]
-
-export const mockActivity: ActivityEntry[] = [
-  { id: "act-1", userId: "usr-1", action: "Updated system settings", module: "Administration", timestamp: hoursAgo(4) },
-  { id: "act-2", userId: "usr-1", action: "Created new user account", module: "User Management", timestamp: daysAgo(1) },
-  { id: "act-3", userId: "usr-1", action: "Approved purchase order PO-2049", module: "Purchase", timestamp: daysAgo(2) },
+  { id: "usr-1", name: "Aung Min Thu", email: "aung.minthu@myanmarfashion.com", status: "active", isEmailVerified: true, roleNames: ["Super Admin"], companyNames: ["Myanmar Fashion Co."], lastLoginAt: minutesAgo(12), createdAt: daysAgo(720) },
+  { id: "usr-2", name: "Nilar Win", email: "nilar.win@myanmarfashion.com", status: "active", isEmailVerified: true, roleNames: ["Company Admin"], companyNames: ["Myanmar Fashion Co."], lastLoginAt: hoursAgo(3), createdAt: daysAgo(600) },
+  { id: "usr-3", name: "Su Myat Noe", email: "su.myatnoe@myanmarfashion.com", status: "active", isEmailVerified: true, roleNames: ["Store Manager"], companyNames: ["Myanmar Fashion Co."], lastLoginAt: hoursAgo(1), createdAt: daysAgo(500) },
+  { id: "usr-4", name: "Ye Htut", email: "ye.htut@myanmarfashion.com", status: "active", isEmailVerified: true, roleNames: ["Cashier"], companyNames: ["Myanmar Fashion Co."], lastLoginAt: minutesAgo(45), createdAt: daysAgo(300) },
+  { id: "usr-5", name: "Thida Aye", email: "thida.aye@myanmarfashion.com", status: "active", isEmailVerified: true, roleNames: ["Inventory Manager"], companyNames: ["Myanmar Fashion Co."], lastLoginAt: daysAgo(1), createdAt: daysAgo(400) },
+  { id: "usr-6", name: "Kyaw Zin Latt", email: "kyaw.zinlatt@myanmarfashion.com", status: "active", isEmailVerified: true, roleNames: ["Accountant"], companyNames: ["Myanmar Fashion Co."], lastLoginAt: hoursAgo(6), createdAt: daysAgo(450) },
+  { id: "usr-7", name: "Ei Ei Phyo", email: "eiei.phyo@myanmarfashion.com", status: "active", isEmailVerified: true, roleNames: ["HR Manager"], companyNames: ["Myanmar Fashion Co."], lastLoginAt: daysAgo(2), createdAt: daysAgo(380) },
+  { id: "usr-8", name: "Zaw Naing", email: "zaw.naing@myanmarfashion.com", status: "inactive", isEmailVerified: true, roleNames: ["Employee"], companyNames: ["Myanmar Fashion Co."], lastLoginAt: daysAgo(30), createdAt: daysAgo(200) },
+  { id: "usr-9", name: "Somchai Prasert", email: "somchai.prasert@thailandfashion.com", status: "active", isEmailVerified: true, roleNames: ["Store Manager"], companyNames: ["Thailand Fashion Co."], lastLoginAt: hoursAgo(2), createdAt: daysAgo(250) },
+  { id: "usr-10", name: "Wei Ling Tan", email: "weiling.tan@singaporefashion.com", status: "locked", isEmailVerified: true, roleNames: ["Store Manager"], companyNames: ["Singapore Fashion Co."], lastLoginAt: daysAgo(10), createdAt: daysAgo(220) },
+  { id: "usr-11", name: "Hla Hla Win", email: "hlahla.win@myanmarfashion.com", status: "inactive", isEmailVerified: false, roleNames: ["Cashier"], companyNames: ["Myanmar Fashion Co."], lastLoginAt: null, createdAt: daysAgo(5) },
 ]
 
 // --- Workflows ---
@@ -294,12 +247,9 @@ export const mockWorkflows: Workflow[] = [
 // --- Notifications ---
 
 export const mockNotifications: AdminNotification[] = [
-  { id: "notif-1", type: "security_alert", title: "Multiple failed login attempts", message: "5 failed login attempts detected for user weilingtan.", channel: "in_app", read: false, createdAt: hoursAgo(1) },
-  { id: "notif-2", type: "approval_request", title: "Purchase Order awaiting approval", message: "PO-2051 requires your approval.", channel: "in_app", read: false, createdAt: hoursAgo(3) },
-  { id: "notif-3", type: "stock_alert", title: "Low stock warning", message: "Classic White Shirt (M) is below reorder level.", channel: "in_app", read: false, createdAt: hoursAgo(5) },
-  { id: "notif-4", type: "payment_reminder", title: "Supplier payment due", message: "Payment to Nike Apparel Co. is due in 2 days.", channel: "email", read: true, createdAt: daysAgo(1) },
-  { id: "notif-5", type: "leave_request", title: "Leave request pending", message: "Zaw Naing submitted a leave request.", channel: "in_app", read: true, createdAt: daysAgo(2) },
-  { id: "notif-6", type: "system_alert", title: "Scheduled maintenance", message: "System maintenance scheduled for this weekend.", channel: "push", read: true, createdAt: daysAgo(4) },
+  { id: "notif-1", eventType: "payment.confirmed", title: "Payment confirmed", body: "A payment of $2,000 was confirmed for PO-2051.", read: false, readAt: null, createdAt: hoursAgo(1) },
+  { id: "notif-2", eventType: "payment.confirmed", title: "Payment confirmed", body: "A payment of $480 was confirmed for PMT-2026-0071.", read: false, readAt: null, createdAt: hoursAgo(3) },
+  { id: "notif-3", eventType: "payment.confirmed", title: "Payment confirmed", body: "A payment of $1,150 was confirmed for SINV-2026-1195.", read: true, readAt: daysAgo(1), createdAt: daysAgo(1) },
 ]
 
 // --- Audit ---

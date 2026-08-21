@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { toastApiError } from "@/lib/api/errors"
 import {
   createFinancePayment,
   fetchApMetrics,
@@ -7,13 +8,11 @@ import {
   fetchFinancePayments,
   fetchPayables,
   fetchReceivables,
-  updateFinancePaymentStatus,
 } from "../api/payment.api"
-import { createExpense, fetchExpenses, updateExpenseStatus } from "../api/expense.api"
+import { createExpense, fetchExpenses } from "../api/expense.api"
 import { createTaxRule, fetchTaxRules, toggleTaxRule, type TaxRuleFormValues } from "../api/tax.api"
 import type { FinancePaymentFormValues } from "../schemas/payment.schema"
 import type { ExpenseFormValues } from "../schemas/expense.schema"
-import type { ExpenseStatus, FinancePaymentStatus } from "../types"
 
 // --- Accounts Receivable ---
 
@@ -49,19 +48,7 @@ export function useCreateFinancePayment() {
       queryClient.invalidateQueries({ queryKey: ["accounting", "payments"] })
       toast.success("Payment recorded")
     },
-    onError: () => toast.error("Failed to record payment"),
-  })
-}
-
-export function useUpdateFinancePaymentStatus() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: FinancePaymentStatus }) => updateFinancePaymentStatus(id, status),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["accounting", "payments"] })
-      toast.success("Payment status updated")
-    },
-    onError: () => toast.error("Failed to update payment"),
+    onError: (error) => toastApiError(error, "Failed to record payment"),
   })
 }
 
@@ -79,19 +66,7 @@ export function useCreateExpense() {
       queryClient.invalidateQueries({ queryKey: ["accounting", "expenses"] })
       toast.success("Expense submitted")
     },
-    onError: () => toast.error("Failed to submit expense"),
-  })
-}
-
-export function useUpdateExpenseStatus() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: ExpenseStatus }) => updateExpenseStatus(id, status),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["accounting", "expenses"] })
-      toast.success("Expense updated")
-    },
-    onError: () => toast.error("Failed to update expense"),
+    onError: (error) => toastApiError(error, "Failed to submit expense"),
   })
 }
 
@@ -109,7 +84,7 @@ export function useCreateTaxRule() {
       queryClient.invalidateQueries({ queryKey: ["accounting", "tax"] })
       toast.success("Tax rule created")
     },
-    onError: () => toast.error("Failed to create tax rule"),
+    onError: (error) => toastApiError(error, "Failed to create tax rule"),
   })
 }
 
@@ -121,6 +96,6 @@ export function useToggleTaxRule() {
       queryClient.invalidateQueries({ queryKey: ["accounting", "tax"] })
       toast.success("Tax rule updated")
     },
-    onError: () => toast.error("Failed to update tax rule"),
+    onError: (error) => toastApiError(error, "Failed to update tax rule"),
   })
 }

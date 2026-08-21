@@ -13,6 +13,7 @@ import {
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { chartColors } from "@/components/charts/chart-colors"
+import { ErrorState } from "@/components/ui/error-state"
 import { formatCurrency } from "@/lib/format"
 import { useRevenueTrend } from "../hooks/useSales"
 import type { RevenueTrendGranularity } from "../types"
@@ -27,8 +28,8 @@ const tooltipStyle = {
 
 /** Revenue Trend widget with Daily/Weekly/Monthly/Yearly granularity toggle. */
 export function RevenueTrendChart() {
-  const [granularity, setGranularity] = useState<RevenueTrendGranularity>("monthly")
-  const { data } = useRevenueTrend(granularity)
+  const [granularity, setGranularity] = useState<RevenueTrendGranularity>("daily")
+  const { data, isError, refetch } = useRevenueTrend(granularity)
 
   return (
     <Card>
@@ -46,7 +47,10 @@ export function RevenueTrendChart() {
         </CardAction>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={280}>
+        {isError ? (
+          <ErrorState message="Couldn't load revenue trend." onRetry={refetch} />
+        ) : (
+        <ResponsiveContainer key={granularity} width="99%" height={280}>
           <AreaChart data={data ?? []} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="salesRevenueFill" x1="0" y1="0" x2="0" y2="1">
@@ -75,6 +79,7 @@ export function RevenueTrendChart() {
             />
           </AreaChart>
         </ResponsiveContainer>
+        )}
       </CardContent>
     </Card>
   )

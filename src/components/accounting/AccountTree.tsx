@@ -7,7 +7,6 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { ErrorState } from "@/components/ui/error-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import { formatCurrency } from "@/lib/format"
 import { useAccounts } from "@/features/accounting/hooks/useAccounts"
 import type { Account } from "@/features/accounting/types"
 
@@ -52,11 +51,10 @@ function AccountRow({ node, depth, onSelect }: { node: AccountNode; depth: numbe
         <span className="text-sm font-medium">{node.name}</span>
         <span className="font-mono text-xs text-muted-foreground">{node.code}</span>
         {node.status === "inactive" && (
-          <Badge variant="outline" className="text-xs">
+          <Badge variant="outline" className="ml-auto text-xs">
             Inactive
           </Badge>
         )}
-        <span className="ml-auto text-xs text-muted-foreground">{formatCurrency(node.balance)}</span>
       </div>
 
       {expanded && hasChildren && (

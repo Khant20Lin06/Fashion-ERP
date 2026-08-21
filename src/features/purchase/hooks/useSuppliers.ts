@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { toastApiError } from "@/lib/api/errors"
 import {
   createSupplier,
   deleteSupplier,
   fetchSupplierById,
+  fetchSupplierPaymentTerms,
   fetchSupplierPerformance,
   fetchSuppliers,
   updateSupplier,
@@ -33,6 +35,13 @@ export function useSupplierPerformance(id: string | undefined) {
   })
 }
 
+export function useSupplierPaymentTerms() {
+  return useQuery({
+    queryKey: ["suppliers", "payment-terms"],
+    queryFn: fetchSupplierPaymentTerms,
+  })
+}
+
 export function useCreateSupplier() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -41,7 +50,7 @@ export function useCreateSupplier() {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] })
       toast.success("Supplier created")
     },
-    onError: () => toast.error("Failed to create supplier"),
+    onError: (error) => toastApiError(error, "Failed to create supplier"),
   })
 }
 
@@ -54,7 +63,7 @@ export function useUpdateSupplier(id: string) {
       queryClient.invalidateQueries({ queryKey: ["suppliers", id] })
       toast.success("Supplier updated")
     },
-    onError: () => toast.error("Failed to update supplier"),
+    onError: (error) => toastApiError(error, "Failed to update supplier"),
   })
 }
 
@@ -66,6 +75,6 @@ export function useDeleteSupplier() {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] })
       toast.success("Supplier deleted")
     },
-    onError: () => toast.error("Failed to delete supplier"),
+    onError: (error) => toastApiError(error, "Failed to delete supplier"),
   })
 }

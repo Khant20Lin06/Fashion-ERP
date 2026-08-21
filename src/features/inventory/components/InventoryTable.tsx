@@ -1,7 +1,6 @@
 "use client"
 
 import { useMemo } from "react"
-import Image from "next/image"
 import { Eye, MoreHorizontal, Package, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -27,20 +26,11 @@ const columns: DataTableColumnDef<InventoryItem>[] = [
     id: "image",
     header: "Image",
     enableSorting: false,
-    cell: ({ row }) => {
-      const url = row.original.imageUrl
-      return (
-        <div className="relative size-10 shrink-0 overflow-hidden rounded-md bg-muted">
-          {url ? (
-            <Image src={url} alt={row.original.productName} fill className="object-cover" unoptimized />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center">
-              <Package className="size-4 text-muted-foreground" />
-            </div>
-          )}
-        </div>
-      )
-    },
+    cell: () => (
+      <div className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
+        <Package className="size-4 text-muted-foreground" />
+      </div>
+    ),
   },
   {
     accessorKey: "productName",
@@ -85,16 +75,11 @@ const columns: DataTableColumnDef<InventoryItem>[] = [
     cell: ({ row }) => formatNumber(row.getValue("reservedQty")),
   },
   {
-    accessorKey: "incomingQty",
-    header: ({ column }) => <ColumnHeader column={column} title="Incoming Qty" />,
-    cell: ({ row }) => formatNumber(row.getValue("incomingQty")),
-  },
-  {
     id: "status",
     header: "Stock Status",
     cell: ({ row }) => {
       const item = row.original
-      return <StockBadge status={deriveStockStatus(item.availableQty, item.reorderLevel, item.overstockLevel)} />
+      return <StockBadge status={deriveStockStatus(item.availableQty)} />
     },
   },
   {
@@ -131,7 +116,7 @@ export function InventoryTable() {
     return data.filter((item) => {
       if (filters.warehouse && item.warehouseId !== filters.warehouse) return false
       if (filters.status) {
-        const status = deriveStockStatus(item.availableQty, item.reorderLevel, item.overstockLevel)
+        const status = deriveStockStatus(item.availableQty)
         if (status !== filters.status) return false
       }
       return true
@@ -157,9 +142,7 @@ export function InventoryTable() {
           label: "Stock Status",
           options: [
             { label: "Available", value: "available" },
-            { label: "Low Stock", value: "low_stock" },
             { label: "Out of Stock", value: "out_of_stock" },
-            { label: "Over Stock", value: "over_stock" },
           ],
         },
       ]}

@@ -30,7 +30,7 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { QuantityInput } from "@/components/inventory/QuantityInput"
 import { PurchaseSummaryCard } from "@/components/purchase/PurchaseSummaryCard"
 import { formatCurrency } from "@/lib/format"
-import { useProducts } from "@/features/products/hooks/useProducts"
+import { useAllProductsFull } from "@/features/products/hooks/useProducts"
 import { salesOrderFormSchema, type SalesOrderFormValues } from "../schemas/sales.schema"
 import { useCreateSalesOrder } from "../hooks/useSales"
 import { CustomerSelector } from "./CustomerSelector"
@@ -38,7 +38,7 @@ import { CustomerSelector } from "./CustomerSelector"
 /** Sales Order create form — customer, product line items, delivery date, payment terms, notes. */
 export function SalesOrderForm() {
   const router = useRouter()
-  const { data: products } = useProducts()
+  const { data: products } = useAllProductsFull()
   const createOrder = useCreateSalesOrder()
   const [pendingProductId, setPendingProductId] = useState("")
 
@@ -58,14 +58,15 @@ export function SalesOrderForm() {
   }, [items])
 
   function handleAddProduct() {
-    const product = (products ?? []).find((p) => p.id === pendingProductId)
-    if (!product) return
+    const product = (products ?? []).find((p) => p.variants.some((v) => v.id === pendingProductId))
+    const variant = product?.variants.find((v) => v.id === pendingProductId)
+    if (!product || !variant) return
     append({
-      productId: product.id,
+      productId: variant.id,
       productName: product.name,
-      sku: product.sku,
+      sku: variant.sku,
       quantity: 1,
-      price: product.sellingPrice,
+      price: variant.sellingPrice,
       discount: 0,
       tax: 0,
     })
@@ -152,11 +153,15 @@ export function SalesOrderForm() {
                     <SelectValue placeholder="Select product" />
                   </SelectTrigger>
                   <SelectContent>
-                    {(products ?? []).map((product) => (
-                      <SelectItem key={product.id} value={product.id}>
-                        {product.name} — {product.sku}
-                      </SelectItem>
-                    ))}
+                    {(products ?? []).flatMap((product) =>
+                      product.variants
+                        .filter((variant) => variant.status === "active")
+                        .map((variant) => (
+                          <SelectItem key={variant.id} value={variant.id}>
+                            {product.name} — {variant.sku}
+                          </SelectItem>
+                        ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>

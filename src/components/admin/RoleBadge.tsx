@@ -15,10 +15,10 @@ const statusConfig: Record<AdminUserStatus, { label: string; variant: "default" 
   active: { label: "Active", variant: "default" },
   inactive: { label: "Inactive", variant: "secondary" },
   locked: { label: "Locked", variant: "destructive" },
-  pending: { label: "Pending", variant: "outline" },
+  suspended: { label: "Suspended", variant: "outline" },
 }
 
-/** Admin user status badge — Active / Inactive / Locked / Pending. */
+/** Admin user status badge — Active / Inactive / Locked / Suspended. */
 export function AdminUserStatusBadge({ status }: { status: AdminUserStatus }) {
   const { label, variant } = statusConfig[status]
   return <Badge variant={variant}>{label}</Badge>

@@ -170,6 +170,7 @@ export const mockPurchaseOrders: PurchaseOrder[] = [
     date: daysAgo(10),
     deliveryDate: daysFromNow(4),
     status: "partially_received",
+    itemCount: 1,
     items: [
       {
         id: "poi-1",
@@ -201,6 +202,7 @@ export const mockPurchaseOrders: PurchaseOrder[] = [
     date: daysAgo(5),
     deliveryDate: daysFromNow(10),
     status: "approved",
+    itemCount: 1,
     items: [
       {
         id: "poi-2",
@@ -232,6 +234,7 @@ export const mockPurchaseOrders: PurchaseOrder[] = [
     date: daysAgo(2),
     deliveryDate: daysFromNow(20),
     status: "pending_approval",
+    itemCount: 1,
     items: [
       {
         id: "poi-3",
@@ -261,6 +264,7 @@ export const mockPurchaseOrders: PurchaseOrder[] = [
     date: daysAgo(30),
     deliveryDate: daysAgo(20),
     status: "received",
+    itemCount: 1,
     items: [
       {
         id: "poi-4",
@@ -416,11 +420,12 @@ export const mockPayments: SupplierPayment[] = [
     reference: "PMT-2026-0071",
     supplierId: "sup-1",
     supplierName: "Nike Apparel Co.",
-    invoiceId: "inv-p-1",
-    invoiceNumber: "PINV-2026-0201",
+    purchaseOrderId: "po-1",
+    poNumber: "PO-2026-0110",
+    paymentMethodId: "pm-bank-transfer",
+    paymentMethodName: "Bank Transfer",
     paymentDate: daysAgo(5),
     amount: 2000,
-    method: "bank_transfer",
     referenceNumber: "TXN-88213",
     notes: "Partial payment",
   },
@@ -429,11 +434,12 @@ export const mockPayments: SupplierPayment[] = [
     reference: "PMT-2026-0072",
     supplierId: "sup-1",
     supplierName: "Nike Apparel Co.",
-    invoiceId: "inv-p-2",
-    invoiceNumber: "PINV-2026-0202",
+    purchaseOrderId: "po-1",
+    poNumber: "PO-2026-0110",
+    paymentMethodId: "pm-bank-transfer",
+    paymentMethodName: "Bank Transfer",
     paymentDate: daysAgo(25),
     amount: 2160,
-    method: "bank_transfer",
     referenceNumber: "TXN-87950",
   },
 ]

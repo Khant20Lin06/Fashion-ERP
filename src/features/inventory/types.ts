@@ -1,21 +1,27 @@
 /** Core domain types for the Inventory & Warehouse Management module. */
 
-export type StockStatus = "available" | "low_stock" | "out_of_stock" | "over_stock" | "reserved"
+// Only "available"/"out_of_stock" are derivable from availableQty alone.
+// "low_stock"/"over_stock" would need a reorder-level/overstock-level
+// field that doesn't exist anywhere in the backend schema; "reserved" was
+// never actually assigned by any code path.
+export type StockStatus = "available" | "out_of_stock"
 
 export type WarehouseStatus = "active" | "inactive"
+export type WarehouseType = "MAIN" | "STORE" | "DISTRIBUTION" | "TRANSIT" | "RETURN" | "VIRTUAL" | "OTHER"
 
 export type Warehouse = {
   id: string
   name: string
   code: string
+  type: WarehouseType
   branchId: string
   branchName: string
   address: string
-  manager: string
-  contact: string
+  manager?: string
+  contact?: string
   status: WarehouseStatus
-  totalProducts: number
-  stockValue: number
+  totalProducts: number | null
+  stockValue: number | null
 }
 
 export type Branch = {
@@ -24,24 +30,27 @@ export type Branch = {
   warehouseIds: string[]
 }
 
-/** A single product-variant's stock position within one warehouse. */
+/**
+ * A single product-variant's stock position within one warehouse. Stock
+ * fields come from the real GET /reports/inventory/stock-summary report
+ * (erp-pos fashion api InventoryReportsService); productName/color/size
+ * are resolved via a separate real /products + /products/:id/variants
+ * join (see fetchInventory in api/inventory.api.ts) since the stock report
+ * itself doesn't carry them. There is no image, cost, incoming-qty, or
+ * reorder-level field anywhere in the backend schema — those are not
+ * represented here (a previous version invented them).
+ */
 export type InventoryItem = {
   id: string
-  productId: string
+  productVariantId: string
   productName: string
-  imageUrl?: string
   sku: string
-  variantId?: string
   color?: string
   size?: string
   warehouseId: string
   warehouseName: string
   availableQty: number
   reservedQty: number
-  incomingQty: number
-  reorderLevel: number
-  overstockLevel: number
-  unitCost: number
 }
 
 export type MovementType =
@@ -70,18 +79,18 @@ export type StockMovement = {
   user: string
 }
 
-export type TransferStatus = "draft" | "pending_approval" | "approved" | "completed" | "cancelled"
-
 export type TransferLineItem = {
   id: string
   productId: string
   productName: string
   sku: string
   variantLabel?: string
-  availableQty: number
+  availableQty?: number
   transferQty: number
 }
 
+/** StockTransfer is create-only/atomic on the real backend (Phase 14 D9/D22,
+ * LOCKED) — no status field, no approval workflow, no PATCH exists. */
 export type StockTransfer = {
   id: string
   reference: string
@@ -89,12 +98,10 @@ export type StockTransfer = {
   fromWarehouseName: string
   toWarehouseId: string
   toWarehouseName: string
-  status: TransferStatus
   items: TransferLineItem[]
+  notes?: string
   createdBy: string
   createdAt: string
-  approvedBy?: string
-  approvedAt?: string
 }
 
 export type AdjustmentType =
@@ -102,6 +109,8 @@ export type AdjustmentType =
   | "damaged_product"
   | "lost_item"
   | "expired_item"
+  | "found_item"
+  | "opening_balance"
   | "manual_correction"
 
 export type AdjustmentStatus = "pending" | "approved" | "rejected"
@@ -150,10 +159,13 @@ export type StockCountSession = {
   lines: StockCountLine[]
 }
 
+// totalInventoryValue and lowStockItems were removed: valuation needs a
+// per-variant costPrice join the stock-summary report doesn't provide, and
+// "low stock" needs a reorder-level field that doesn't exist anywhere in
+// the backend schema (see AGENTS/Phase 21 audit) — both would have to be
+// fabricated to populate.
 export type InventoryKpis = {
-  totalInventoryValue: number
   totalProducts: number
-  lowStockItems: number
   outOfStockItems: number
 }
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { MapPin, MoreHorizontal, Pencil, Trash2, User, Warehouse as WarehouseIcon } from "lucide-react"
+import { MapPin, MoreHorizontal, Pencil, Trash2, Warehouse as WarehouseIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -19,7 +19,10 @@ type WarehouseCardProps = {
   onEdit: (warehouse: Warehouse) => void
 }
 
-/** Warehouse summary card — name, location, total products, stock value, status. */
+function renderMetric(value: number | null, formatter: (input: number) => string): string {
+  return value === null ? "Unavailable" : formatter(value)
+}
+
 export function WarehouseCard({ warehouse, onEdit }: WarehouseCardProps) {
   const { mutate: deleteWarehouse } = useDeleteWarehouse()
 
@@ -51,25 +54,25 @@ export function WarehouseCard({ warehouse, onEdit }: WarehouseCardProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       </CardHeader>
+
       <CardContent className="flex flex-col gap-3">
         <div className="flex items-start gap-2 text-sm text-muted-foreground">
           <MapPin className="mt-0.5 size-3.5 shrink-0" />
-          <span>{warehouse.address}</span>
+          <span>{warehouse.address || "Address not provided"}</span>
         </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <User className="size-3.5 shrink-0" />
-          <span>
-            {warehouse.manager} · {warehouse.contact}
-          </span>
+
+        <div className="text-sm text-muted-foreground">
+          Type: {warehouse.type.replaceAll("_", " ")}
         </div>
+
         <div className="flex items-center justify-between border-t pt-3">
           <div>
             <p className="text-xs text-muted-foreground">Total Products</p>
-            <p className="text-sm font-semibold">{formatNumber(warehouse.totalProducts)}</p>
+            <p className="text-sm font-semibold">{renderMetric(warehouse.totalProducts, formatNumber)}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Stock Value</p>
-            <p className="text-sm font-semibold">{formatCurrency(warehouse.stockValue)}</p>
+            <p className="text-sm font-semibold">{renderMetric(warehouse.stockValue, formatCurrency)}</p>
           </div>
           <Badge variant={warehouse.status === "active" ? "default" : "outline"}>
             {warehouse.status === "active" ? "Active" : "Inactive"}

@@ -21,7 +21,7 @@ export function EssDashboard({ employee }: EssDashboardProps) {
   const { data: attendance } = useAttendanceRecords()
   const { data: leaves } = useLeaveRequests()
   const { data: balances } = useLeaveBalances(employee.id)
-  const { data: payroll } = usePayrollEntries()
+  const { data: payroll, isError: payrollError } = usePayrollEntries()
   const { data: announcements } = useAnnouncements()
 
   const myAttendance = (attendance ?? []).filter((a) => a.employeeId === employee.id).slice(0, 5)
@@ -73,7 +73,9 @@ export function EssDashboard({ employee }: EssDashboardProps) {
           <CardTitle className="text-base">My Payslip</CardTitle>
         </CardHeader>
         <CardContent>
-          {myPayslips.length === 0 ? (
+          {payrollError ? (
+            <EmptyState title="Payslips not available" description="No backend payroll module exists yet." />
+          ) : myPayslips.length === 0 ? (
             <EmptyState title="No payslips yet" description="Your payslips will appear here." />
           ) : (
             <SalaryCard entry={myPayslips[0]} />

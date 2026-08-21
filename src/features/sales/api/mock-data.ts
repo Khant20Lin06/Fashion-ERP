@@ -1,7 +1,6 @@
 import type {
   Customer,
   CustomerAnalytics,
-  DiscountRule,
   LoyaltyTransaction,
   ProductPerformancePoint,
   RevenueTrendPoint,
@@ -259,7 +258,7 @@ export const mockInvoices: SalesInvoice[] = [
     amountPaid: 136.88,
     paymentMethod: "card",
     paymentStatus: "paid",
-    status: "closed",
+    status: "CONFIRMED",
   },
   {
     id: "sinv-2",
@@ -276,7 +275,7 @@ export const mockInvoices: SalesInvoice[] = [
     amountPaid: 70,
     paymentMethod: "bank_transfer",
     paymentStatus: "partial",
-    status: "open",
+    status: "CONFIRMED",
   },
   {
     id: "sinv-3",
@@ -293,7 +292,7 @@ export const mockInvoices: SalesInvoice[] = [
     amountPaid: 108,
     paymentMethod: "cash",
     paymentStatus: "paid",
-    status: "closed",
+    status: "CONFIRMED",
   },
   {
     id: "sinv-4",
@@ -322,25 +321,24 @@ export const mockInvoices: SalesInvoice[] = [
     amountPaid: 0,
     paymentMethod: "cash",
     paymentStatus: "unpaid",
-    status: "open",
+    status: "CONFIRMED",
   },
 ]
 
 export const mockReturns: SalesReturn[] = [
   {
     id: "sret-1",
-    reference: "RTN-S-2026-0044",
-    invoiceId: "sinv-3",
+    returnNumber: "RTN-S-2026-0044",
+    saleId: "sinv-3",
     invoiceNumber: "SINV-2026-1195",
     customerId: "cust-2",
     customerName: "Kyaw Zin Htet",
-    type: "product_return",
     reason: "Wrong size received",
-    refundMethod: "cash",
-    status: "approved",
+    status: "confirmed",
     items: [
       {
         id: "sreti-1",
+        saleItemId: "item-3-1",
         productId: "prod-1",
         productName: "Nike Classic Tee",
         sku: "NIKE-TS-BLK-L-001",
@@ -352,25 +350,10 @@ export const mockReturns: SalesReturn[] = [
       },
     ],
     refundAmount: 35,
+    refundedAmount: 20,
+    notes: "Customer requested partial refund first.",
     createdAt: daysAgo(6),
   },
-]
-
-export const mockDiscountRules: DiscountRule[] = [
-  { id: "disc-1", name: "Nike Classic Tee — Launch Discount", kind: "product", target: "Nike Classic Tee", percent: 10, isActive: true },
-  { id: "disc-2", name: "Women Category Sale", kind: "category", target: "Women", percent: 20, isActive: true },
-  { id: "disc-3", name: "VIP Customer Discount", kind: "customer", target: "VIP", percent: 15, isActive: true },
-  {
-    id: "disc-4",
-    name: "Summer Sale 2026",
-    kind: "campaign",
-    target: "Storewide",
-    percent: 30,
-    isActive: true,
-    startDate: daysAgo(5),
-    endDate: daysFromNow(25),
-  },
-  { id: "disc-5", name: "Winter Clearance 2025", kind: "campaign", target: "Storewide", percent: 40, isActive: false },
 ]
 
 export const mockLoyaltyTransactions: LoyaltyTransaction[] = [
@@ -413,11 +396,11 @@ export const revenueTrendByGranularity = {
 }
 
 export const productPerformance: ProductPerformancePoint[] = [
-  { productName: "Nike Classic Tee", unitsSold: 320, revenue: 11200, profitMargin: 42.9 },
-  { productName: "Floral Summer Dress", unitsSold: 145, revenue: 9860, profitMargin: 55.9 },
-  { productName: "Leather Belt", unitsSold: 210, revenue: 5250, profitMargin: 52 },
-  { productName: "Wool Blend Coat", unitsSold: 38, revenue: 4902, profitMargin: 53.5 },
-  { productName: "Kids Graphic Tee", unitsSold: 12, revenue: 180, profitMargin: 46.7 },
+  { productName: "Nike Classic Tee", unitsSold: 320, revenue: 11200 },
+  { productName: "Floral Summer Dress", unitsSold: 145, revenue: 9860 },
+  { productName: "Leather Belt", unitsSold: 210, revenue: 5250 },
+  { productName: "Wool Blend Coat", unitsSold: 38, revenue: 4902 },
+  { productName: "Kids Graphic Tee", unitsSold: 12, revenue: 180 },
 ]
 
 export const customerAnalyticsSummary = {

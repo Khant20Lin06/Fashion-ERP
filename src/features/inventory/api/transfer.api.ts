@@ -1,6 +1,7 @@
 import { apiClient } from "@/lib/api/client"
+import { resolveCompanyId } from "@/lib/api/resolve-company-id"
 import { env } from "@/config/env"
-import type { StockTransfer, TransferStatus } from "../types"
+import type { StockTransfer } from "../types"
 import type { TransferFormValues } from "../schemas/transfer.schema"
 import { mockTransfers } from "./mock-data"
 
@@ -10,10 +11,65 @@ function delay<T>(value: T, ms = 200): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms))
 }
 
+// Real route is @Controller('stock-transfers'), not /inventory/transfers,
+// and StockTransfer (Phase 14 D9/D22, LOCKED) has no status field — no
+// PATCH exists at all, creation is the whole lifecycle.
+
+type BackendStockTransferItem = {
+  id: string
+  stockTransferId: string
+  productVariantId: string
+  quantity: number
+  productName: string | null
+  sku: string | null
+  variantLabel: string | null
+}
+
+type BackendStockTransfer = {
+  id: string
+  transferNumber: string
+  sourceWarehouseId: string
+  sourceWarehouseName: string | null
+  destinationWarehouseId: string
+  destinationWarehouseName: string | null
+  companyId: string
+  notes: string | null
+  createdBy: string
+  createdByName: string | null
+  createdAt: string
+  updatedAt: string
+  items: BackendStockTransferItem[]
+}
+
+function mapBackendToTransfer(bt: BackendStockTransfer): StockTransfer {
+  return {
+    id: bt.id,
+    reference: bt.transferNumber,
+    fromWarehouseId: bt.sourceWarehouseId,
+    fromWarehouseName: bt.sourceWarehouseName ?? "",
+    toWarehouseId: bt.destinationWarehouseId,
+    toWarehouseName: bt.destinationWarehouseName ?? "",
+    items: bt.items.map((it) => ({
+      id: it.id,
+      productId: it.productVariantId,
+      productName: it.productName ?? "",
+      sku: it.sku ?? "",
+      variantLabel: it.variantLabel ?? undefined,
+      transferQty: it.quantity,
+    })),
+    notes: bt.notes ?? undefined,
+    createdBy: bt.createdByName ?? bt.createdBy,
+    createdAt: bt.createdAt,
+  }
+}
+
 export async function fetchTransfers(): Promise<StockTransfer[]> {
   if (USE_MOCK) return delay(mockTransfers)
-  const { data } = await apiClient.get<StockTransfer[]>("/inventory/transfers")
-  return data
+  const companyId = await resolveCompanyId()
+  const { data } = await apiClient.get<{ data: BackendStockTransfer[]; meta: unknown }>("/stock-transfers", {
+    params: { companyId, limit: 100 },
+  })
+  return (data.data ?? []).map(mapBackendToTransfer)
 }
 
 export async function createTransfer(values: TransferFormValues): Promise<StockTransfer> {
@@ -27,27 +83,22 @@ export async function createTransfer(values: TransferFormValues): Promise<StockT
       fromWarehouseName: fromWarehouse?.name ?? "",
       toWarehouseId: values.toWarehouseId,
       toWarehouseName: toWarehouse?.name ?? "",
-      status: "draft",
       items: values.items.map((item, index) => ({ id: `line-${Date.now()}-${index}`, ...item })),
+      notes: values.notes || undefined,
       createdBy: "You",
       createdAt: new Date().toISOString(),
     })
   }
-  const { data } = await apiClient.post<StockTransfer>("/inventory/transfers", values)
-  return data
-}
-
-export async function updateTransferStatus(id: string, status: TransferStatus): Promise<StockTransfer> {
-  if (USE_MOCK) {
-    const existing = mockTransfers.find((t) => t.id === id)
-    if (!existing) throw new Error("Transfer not found")
-    return delay({
-      ...existing,
-      status,
-      approvedBy: status === "approved" ? "Manager" : existing.approvedBy,
-      approvedAt: status === "approved" ? new Date().toISOString() : existing.approvedAt,
-    })
-  }
-  const { data } = await apiClient.patch<StockTransfer>(`/inventory/transfers/${id}/status`, { status })
-  return data
+  const companyId = await resolveCompanyId()
+  const { data } = await apiClient.post<BackendStockTransfer>("/stock-transfers", {
+    companyId,
+    sourceWarehouseId: values.fromWarehouseId,
+    destinationWarehouseId: values.toWarehouseId,
+    notes: values.notes?.trim() || undefined,
+    items: values.items.map((item) => ({
+      productVariantId: item.productId,
+      quantity: item.transferQty,
+    })),
+  })
+  return mapBackendToTransfer(data)
 }

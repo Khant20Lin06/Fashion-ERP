@@ -31,6 +31,7 @@ export function SalesInvoiceTable() {
     if (!data) return []
     return data.filter((invoice) => {
       if (filters.paymentStatus && invoice.paymentStatus !== filters.paymentStatus) return false
+      if (filters.status && invoice.status !== filters.status) return false
       return true
     })
   }, [data, filters])
@@ -80,7 +81,7 @@ export function SalesInvoiceTable() {
       accessorKey: "status",
       header: ({ column }) => <ColumnHeader column={column} title="Status" />,
       cell: ({ row }) => (
-        <span className="capitalize text-muted-foreground">{row.getValue<string>("status")}</span>
+        <span className="font-mono text-muted-foreground">{row.getValue<string>("status")}</span>
       ),
     },
     {
@@ -120,6 +121,15 @@ export function SalesInvoiceTable() {
             { label: "Partial", value: "partial" },
             { label: "Unpaid", value: "unpaid" },
             { label: "Refunded", value: "refunded" },
+          ],
+        },
+        {
+          key: "status",
+          label: "Status",
+          options: [
+            { label: "DRAFT", value: "DRAFT" },
+            { label: "CONFIRMED", value: "CONFIRMED" },
+            { label: "CANCELLED", value: "CANCELLED" },
           ],
         },
       ]}

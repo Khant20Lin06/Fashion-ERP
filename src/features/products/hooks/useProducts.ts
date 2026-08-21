@@ -4,7 +4,7 @@ import { fetchAllProductsFull, fetchProductById, fetchProducts } from "../api/pr
 export function useProducts() {
   return useQuery({
     queryKey: ["products"],
-    queryFn: fetchProducts,
+    queryFn: () => fetchProducts(),
   })
 }
 
@@ -12,7 +12,7 @@ export function useProducts() {
 export function useAllProductsFull() {
   return useQuery({
     queryKey: ["products", "full"],
-    queryFn: fetchAllProductsFull,
+    queryFn: () => fetchAllProductsFull(),
   })
 }
 

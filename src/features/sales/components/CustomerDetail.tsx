@@ -124,7 +124,7 @@ export function CustomerDetail({ customer }: CustomerDetailProps) {
                 customerReturns.map((ret) => (
                   <div key={ret.id} className="flex items-center justify-between rounded-md border p-3 text-sm">
                     <div>
-                      <p className="font-mono font-medium">{ret.reference}</p>
+                      <p className="font-mono font-medium">{ret.returnNumber}</p>
                       <p className="text-xs text-muted-foreground">{ret.reason}</p>
                     </div>
                     <div className="flex items-center gap-2">

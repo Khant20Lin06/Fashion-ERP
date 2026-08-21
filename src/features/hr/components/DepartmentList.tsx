@@ -57,7 +57,6 @@ export function DepartmentList({ onEdit }: DepartmentListProps) {
                 </Badge>
               </div>
               <p className="font-mono text-xs text-muted-foreground">{department.code}</p>
-              {department.managerName && <p className="text-xs text-muted-foreground">Manager: {department.managerName}</p>}
               <p className="text-xs text-muted-foreground">{formatNumber(department.employeeCount)} employees</p>
             </div>
             <DropdownMenu>

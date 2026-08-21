@@ -21,7 +21,7 @@ type SupplierDetailProps = {
   supplier: Supplier
 }
 
-/** Supplier Profile page: header + Overview/Purchase History/Invoices/Payments/Products/Performance tabs. */
+/** Supplier profile page aligned to the real backend supplier contract. */
 export function SupplierDetail({ supplier }: SupplierDetailProps) {
   const { data: orders } = usePurchaseOrders()
   const { data: invoices } = useInvoices()
@@ -34,6 +34,7 @@ export function SupplierDetail({ supplier }: SupplierDetailProps) {
   const productsSupplied = Array.from(
     new Map(supplierOrders.flatMap((o) => o.items).map((item) => [item.sku, item])).values()
   )
+  const statusVariant = supplier.status === "active" ? "default" : supplier.status === "blocked" ? "destructive" : "outline"
 
   return (
     <div className="flex flex-col gap-6">
@@ -45,7 +46,7 @@ export function SupplierDetail({ supplier }: SupplierDetailProps) {
           <div className="space-y-1">
             <h1 className="text-xl font-semibold tracking-tight">{supplier.name}</h1>
             <p className="font-mono text-sm text-muted-foreground">{supplier.code}</p>
-            <Badge variant={supplier.status === "active" ? "default" : "outline"} className="capitalize">
+            <Badge variant={statusVariant} className="capitalize">
               {supplier.status}
             </Badge>
           </div>
@@ -73,16 +74,15 @@ export function SupplierDetail({ supplier }: SupplierDetailProps) {
               <CardTitle className="text-base">Overview</CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <DetailField label="Contact Person" value={supplier.contactPerson} />
-              <DetailField label="Phone" value={supplier.phone} />
-              <DetailField label="Email" value={supplier.email} />
-              <DetailField label="Website" value={supplier.website ?? "—"} />
-              <DetailField label="Address" value={supplier.address} />
-              <DetailField label="Country" value={supplier.country} />
-              <DetailField label="Payment Terms" value={supplier.paymentTerms} />
-              <DetailField label="Currency" value={supplier.currency} />
+              <DetailField label="Contact Person" value={supplier.contactPerson || "-"} />
+              <DetailField label="Phone" value={supplier.phone || "-"} />
+              <DetailField label="Email" value={supplier.email || "-"} />
+              <DetailField label="Payment Terms" value={supplier.paymentTerms || "-"} />
+              <DetailField label="Credit Days" value={`${supplier.creditDays}`} />
+              <DetailField label="Opening Balance" value={formatCurrency(supplier.openingBalance ?? 0)} />
               <DetailField label="Total Purchase" value={formatCurrency(supplier.totalPurchase)} />
               <DetailField label="Outstanding" value={formatCurrency(supplier.outstanding)} />
+              <DetailField label="Notes" value={supplier.notes || "-"} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -172,7 +172,7 @@ export function SupplierDetail({ supplier }: SupplierDetailProps) {
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {loadingPerformance ? (
-                Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)
+                Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-20 w-full" />)
               ) : !performance ? (
                 <EmptyState title="No performance data" description="Performance metrics will appear here once available." />
               ) : (

@@ -9,7 +9,7 @@ export default function StockTransferPage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Stock Transfer</h1>
-        <p className="text-sm text-muted-foreground">Move stock between warehouses with a manager approval workflow.</p>
+        <p className="text-sm text-muted-foreground">Move stock between warehouses instantly. Transfers update inventory as soon as they are submitted.</p>
       </div>
 
       <Tabs defaultValue="new">

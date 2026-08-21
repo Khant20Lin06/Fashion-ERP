@@ -3,20 +3,24 @@
 export type AccountType = "asset" | "liability" | "equity" | "income" | "expense"
 export type AccountStatus = "active" | "inactive"
 
+// AccountResponseDto has no `balance` or `currency` field — Account is pure
+// chart-of-accounts master data, never a live balance snapshot. Per-account
+// balances only ever exist as a backend-computed report row (Trial Balance,
+// P&L, Balance Sheet), never as a property of the Account resource itself.
 export type Account = {
   id: string
   name: string
   code: string
   type: AccountType
   parentId: string | null
-  currency: string
   status: AccountStatus
-  balance: number
 }
 
 // --- Journal Entries (double-entry) ---
 
-export type JournalStatus = "draft" | "submitted" | "approved" | "posted"
+// JournalEntryStatus (backend, exact enum): DRAFT | POSTED | CANCELLED —
+// no SUBMITTED/APPROVED workflow exists (D12, LOCKED).
+export type JournalStatus = "draft" | "posted" | "cancelled"
 
 export type JournalLine = {
   id: string
@@ -39,7 +43,11 @@ export type JournalEntry = {
 }
 
 // --- General Ledger ---
-
+// GeneralLedgerRow (backend) has no running/opening/closing balance field —
+// D5/D20 (LOCKED): the General Ledger is a pure read-query over POSTED
+// JournalEntryLine rows, never a physical ledger table with a stored
+// balance. A per-account balance only ever exists as a backend-computed
+// report total (Trial Balance/P&L/Balance Sheet), not a ledger-row property.
 export type LedgerEntry = {
   id: string
   date: string
@@ -48,7 +56,6 @@ export type LedgerEntry = {
   accountName: string
   debit: number
   credit: number
-  balance: number
   user: string
 }
 
@@ -145,6 +152,24 @@ export type TaxRule = {
   isActive: boolean
 }
 
+// --- Trial Balance ---
+// Real, backend-computed endpoint (GET /trial-balance) — SUM(debit)/SUM(credit)
+// per account, grouped server-side over POSTED journal lines.
+export type TrialBalanceRow = {
+  accountId: string
+  accountCode: string
+  accountName: string
+  accountType: AccountType
+  totalDebit: number
+  totalCredit: number
+}
+
+export type TrialBalance = {
+  rows: TrialBalanceRow[]
+  totalDebit: number
+  totalCredit: number
+}
+
 // --- Financial Statements ---
 
 export type ProfitAndLoss = {
@@ -196,15 +221,19 @@ export type IncomeExpensePoint = {
 }
 
 // --- Audit Log ---
+// Mirrors the real backend row exactly (erp-pos fashion api
+// AccountingAuditLogRow, GET /reports/accounting/audit-log) — entityType/
+// action/referenceNumber/performedBy/timestamp only. There is no
+// free-text "changes" description and no user-name resolution on the
+// backend (performedBy is the raw createdBy/postedBy user id).
 
 export type AuditEntry = {
-  id: string
-  date: string
-  user: string
-  action: string
-  module: string
-  reference: string
-  changes: string
+  entityId: string
+  entityType: "JOURNAL_ENTRY" | "PAYMENT" | "SALE" | "PURCHASE_ORDER"
+  action: "CREATED" | "POSTED" | "CONFIRMED"
+  referenceNumber: string
+  performedBy: string | null
+  timestamp: string
 }
 
 export type AccountingFilters = {

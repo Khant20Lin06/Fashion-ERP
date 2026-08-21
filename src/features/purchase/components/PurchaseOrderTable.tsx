@@ -2,7 +2,7 @@
 
 import { useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Eye, MoreHorizontal } from "lucide-react"
+import { Check, Eye, MoreHorizontal, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -17,7 +17,7 @@ import {
 } from "@/components/data-table"
 import { PurchaseStatusBadge } from "@/components/purchase/PurchaseStatusBadge"
 import { formatCurrency } from "@/lib/format"
-import { usePurchaseOrders } from "../hooks/usePurchaseOrders"
+import { usePurchaseOrders, useUpdatePurchaseOrderStatus } from "../hooks/usePurchaseOrders"
 import { useSuppliers } from "../hooks/useSuppliers"
 import { usePurchaseStore } from "../stores/purchase.store"
 import type { PurchaseOrder } from "../types"
@@ -26,8 +26,15 @@ import type { PurchaseOrder } from "../types"
 export function PurchaseOrderTable() {
   const router = useRouter()
   const { data, isLoading, isError, refetch } = usePurchaseOrders()
+  const updateStatus = useUpdatePurchaseOrderStatus()
   const { data: suppliers } = useSuppliers()
   const { filters, setFilter } = usePurchaseStore()
+
+  function formatOptionalDate(value: string) {
+    if (!value) return "—"
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? "—" : date.toLocaleDateString()
+  }
 
   const filteredData = useMemo(() => {
     if (!data) return []
@@ -58,12 +65,12 @@ export function PurchaseOrderTable() {
     {
       accessorKey: "date",
       header: ({ column }) => <ColumnHeader column={column} title="Date" />,
-      cell: ({ row }) => new Date(row.getValue<string>("date")).toLocaleDateString(),
+      cell: ({ row }) => formatOptionalDate(row.getValue<string>("date")),
     },
     {
       id: "items",
       header: "Items",
-      cell: ({ row }) => row.original.items.length,
+      cell: ({ row }) => row.original.itemCount,
     },
     {
       accessorKey: "grandTotal",
@@ -73,7 +80,7 @@ export function PurchaseOrderTable() {
     {
       accessorKey: "deliveryDate",
       header: ({ column }) => <ColumnHeader column={column} title="Delivery Date" />,
-      cell: ({ row }) => new Date(row.getValue<string>("deliveryDate")).toLocaleDateString(),
+      cell: ({ row }) => formatOptionalDate(row.getValue<string>("deliveryDate")),
     },
     {
       accessorKey: "status",
@@ -94,6 +101,22 @@ export function PurchaseOrderTable() {
             <DropdownMenuItem onClick={() => router.push(`/dashboard/purchase/orders/${row.original.id}`)}>
               <Eye /> View Details
             </DropdownMenuItem>
+            {row.original.status === "draft" ? (
+              <>
+                <DropdownMenuItem
+                  disabled={updateStatus.isPending}
+                  onSelect={() => updateStatus.mutate({ id: row.original.id, status: "approved" })}
+                >
+                  <Check /> Confirm Order
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={updateStatus.isPending}
+                  onSelect={() => updateStatus.mutate({ id: row.original.id, status: "cancelled" })}
+                >
+                  <X /> Cancel Order
+                </DropdownMenuItem>
+              </>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
       ),

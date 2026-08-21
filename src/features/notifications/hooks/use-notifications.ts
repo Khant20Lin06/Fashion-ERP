@@ -1,8 +1,7 @@
 "use client"
 
-import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { fetchNotifications } from "../api/notifications.api"
-import type { Notification } from "../types"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { fetchNotifications, markNotificationRead } from "../api/notifications.api"
 
 const QUERY_KEY = ["notifications"]
 
@@ -15,21 +14,13 @@ export function useNotifications() {
   })
 }
 
-/** Optimistically marks notifications as read in the query cache (no backend mutation yet). */
-export function useMarkNotificationsRead() {
+// Real backend has no bulk "mark all read" endpoint — only
+// PATCH /notifications/:id/read, one at a time (same gap already
+// documented in Phase 10's admin Notification Center).
+export function useMarkNotificationRead() {
   const queryClient = useQueryClient()
-
-  function markRead(ids: string[]) {
-    queryClient.setQueryData<Notification[]>(QUERY_KEY, (current) =>
-      current?.map((n) => (ids.includes(n.id) ? { ...n, isRead: true } : n))
-    )
-  }
-
-  function markAllRead() {
-    queryClient.setQueryData<Notification[]>(QUERY_KEY, (current) =>
-      current?.map((n) => ({ ...n, isRead: true }))
-    )
-  }
-
-  return { markRead, markAllRead }
+  return useMutation({
+    mutationFn: (id: string) => markNotificationRead(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+  })
 }

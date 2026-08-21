@@ -1,4 +1,4 @@
-import { AlertTriangle, Clock, TrendingUp, UserCheck, UserX } from "lucide-react"
+import { Clock, UserCheck, UserX } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatNumber } from "@/lib/format"
@@ -9,12 +9,13 @@ type AttendanceMetricsSectionProps = {
   isLoading: boolean
 }
 
-/** Attendance metrics: Present, Absent, Late, Early Leave, Overtime. */
+/** Attendance metrics: Present, Absent, Late. No Early Leave/Overtime tile —
+ * no backend calculation exists for either (see attendance.api.ts). */
 export function AttendanceMetricsSection({ metrics, isLoading }: AttendanceMetricsSectionProps) {
   if (isLoading || !metrics) {
     return (
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, i) => (
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
           <Skeleton key={i} className="h-20 w-full" />
         ))}
       </div>
@@ -25,8 +26,6 @@ export function AttendanceMetricsSection({ metrics, isLoading }: AttendanceMetri
     { label: "Present", value: metrics.present, icon: UserCheck, tone: "success" as const },
     { label: "Absent", value: metrics.absent, icon: UserX, tone: "destructive" as const },
     { label: "Late", value: metrics.late, icon: Clock, tone: "warning" as const },
-    { label: "Early Leave", value: metrics.earlyLeave, icon: AlertTriangle, tone: "warning" as const },
-    { label: "Overtime", value: metrics.overtime, icon: TrendingUp, tone: "default" as const },
   ]
 
   const toneClass = {
@@ -37,7 +36,7 @@ export function AttendanceMetricsSection({ metrics, isLoading }: AttendanceMetri
   }
 
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
       {tiles.map((tile) => (
         <Card key={tile.label} className="py-4">
           <CardContent className="flex items-center gap-3 px-4">

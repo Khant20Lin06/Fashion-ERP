@@ -5,6 +5,7 @@ import {
   BalanceSheetStatement,
   CashFlowStatementCard,
   ProfitAndLossStatement,
+  TrialBalanceStatement,
 } from "@/features/accounting/components/FinancialSummary"
 
 export default function FinancialStatementsPage() {
@@ -12,15 +13,19 @@ export default function FinancialStatementsPage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Financial Statements</h1>
-        <p className="text-sm text-muted-foreground">Profit &amp; Loss, Balance Sheet, and Cash Flow.</p>
+        <p className="text-sm text-muted-foreground">Trial Balance, Profit &amp; Loss, Balance Sheet, and Cash Flow.</p>
       </div>
 
-      <Tabs defaultValue="pnl">
+      <Tabs defaultValue="trial-balance">
         <TabsList>
+          <TabsTrigger value="trial-balance">Trial Balance</TabsTrigger>
           <TabsTrigger value="pnl">Profit &amp; Loss</TabsTrigger>
           <TabsTrigger value="balance-sheet">Balance Sheet</TabsTrigger>
           <TabsTrigger value="cash-flow">Cash Flow</TabsTrigger>
         </TabsList>
+        <TabsContent value="trial-balance" className="mt-4">
+          <TrialBalanceStatement />
+        </TabsContent>
         <TabsContent value="pnl" className="mt-4">
           <ProfitAndLossStatement />
         </TabsContent>

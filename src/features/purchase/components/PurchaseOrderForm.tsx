@@ -33,19 +33,19 @@ import { useSuppliers } from "../hooks/useSuppliers"
 import { useCreatePurchaseOrder } from "../hooks/usePurchaseOrders"
 import { purchaseOrderFormSchema, type PurchaseOrderFormValues } from "../schemas/purchase.schema"
 import { ProductSelector } from "./ProductSelector"
-import { useProducts } from "@/features/products/hooks/useProducts"
+import { useAllProductsFull } from "@/features/products/hooks/useProducts"
 
 /** Purchase Order create form — supplier info, product line items, live tax/discount/total summary. */
 export function PurchaseOrderForm() {
   const router = useRouter()
   const { data: suppliers } = useSuppliers()
-  const { data: products } = useProducts()
+  const { data: products } = useAllProductsFull()
   const createOrder = useCreatePurchaseOrder()
   const [pendingProductId, setPendingProductId] = useState("")
 
   const form = useForm<PurchaseOrderFormValues>({
     resolver: zodResolver(purchaseOrderFormSchema),
-    defaultValues: { supplierId: "", contact: "", paymentTerms: "", deliveryDate: "", items: [] },
+    defaultValues: { supplierId: "", paymentTermId: "", contact: "", paymentTerms: "", deliveryDate: "", items: [] },
   })
 
   const { fields, append, remove, update } = useFieldArray({ control: form.control, name: "items" })
@@ -63,19 +63,21 @@ export function PurchaseOrderForm() {
   function handleSupplierChange(id: string) {
     const supplier = (suppliers ?? []).find((s) => s.id === id)
     form.setValue("supplierId", id)
+    form.setValue("paymentTermId", supplier?.paymentTermId ?? "")
     form.setValue("contact", supplier?.contactPerson ?? "")
     form.setValue("paymentTerms", supplier?.paymentTerms ?? "")
   }
 
   function handleAddProduct() {
-    const product = (products ?? []).find((p) => p.id === pendingProductId)
-    if (!product) return
+    const product = (products ?? []).find((p) => p.variants.some((v) => v.id === pendingProductId))
+    const variant = product?.variants.find((v) => v.id === pendingProductId)
+    if (!product || !variant) return
     append({
-      productId: product.id,
+      productId: variant.id,
       productName: product.name,
-      sku: product.sku,
+      sku: variant.sku,
       quantity: 1,
-      unitCost: product.sellingPrice,
+      unitCost: variant.costPrice,
       discount: 0,
       tax: 0,
     })

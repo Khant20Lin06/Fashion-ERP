@@ -40,11 +40,6 @@ const columns: DataTableColumnDef<LedgerEntry>[] = [
     },
   },
   {
-    accessorKey: "balance",
-    header: ({ column }) => <ColumnHeader column={column} title="Balance" />,
-    cell: ({ row }) => formatCurrency(row.getValue("balance")),
-  },
-  {
     accessorKey: "user",
     header: ({ column }) => <ColumnHeader column={column} title="User" />,
   },

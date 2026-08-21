@@ -9,7 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -26,15 +25,16 @@ import { useCreateRole, useUpdateRole } from "../hooks/useRoles"
 import { roleFormSchema, type RoleFormValues } from "../schemas/role.schema"
 import type { Role } from "../types"
 
-const availableGroups = ["all", "users", "settings", "reports", "sales", "pos", "inventory", "purchase", "accounting", "hr", "ess"]
-
 type RoleFormDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   role?: Role
 }
 
-/** Create/edit dialog for a Role — Role Name, Description, Permission Groups, Status. */
+/** Create/edit dialog for a Role — Name, Code, Description, Status.
+ * Permission assignment happens separately via the Permission Matrix
+ * screen (PUT /roles/:id/permissions), not on this form — the real backend
+ * has no combined create-with-permissions endpoint. */
 export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -54,22 +54,11 @@ function RoleFormDialogContent({ onOpenChange, role }: { onOpenChange: (open: bo
     resolver: zodResolver(roleFormSchema),
     defaultValues: {
       name: role?.name ?? "",
+      code: role?.code ?? "",
       description: role?.description ?? "",
-      permissionGroups: role?.permissionGroups ?? [],
       status: role?.status ?? "active",
     },
   })
-
-  const selectedGroups = form.watch("permissionGroups")
-
-  function toggleGroup(group: string) {
-    const current = form.getValues("permissionGroups")
-    form.setValue(
-      "permissionGroups",
-      current.includes(group) ? current.filter((g) => g !== group) : [...current, group],
-      { shouldValidate: true }
-    )
-  }
 
   function onSubmit(values: RoleFormValues) {
     const mutation = isEditing ? updateRole : createRole
@@ -90,7 +79,20 @@ function RoleFormDialogContent({ onOpenChange, role }: { onOpenChange: (open: bo
               <FormItem>
                 <FormLabel>Role Name</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. Store Manager" {...field} disabled={role?.isSystem} />
+                  <Input placeholder="e.g. Store Manager" {...field} disabled={role?.isSystemRole} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="code"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Code</FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g. STORE_MANAGER" className="font-mono uppercase" {...field} disabled={isEditing} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -109,22 +111,6 @@ function RoleFormDialogContent({ onOpenChange, role }: { onOpenChange: (open: bo
               </FormItem>
             )}
           />
-          <FormItem>
-            <FormLabel>Permission Groups</FormLabel>
-            <div className="flex flex-wrap gap-1.5">
-              {availableGroups.map((group) => (
-                <Badge
-                  key={group}
-                  variant={selectedGroups.includes(group) ? "default" : "outline"}
-                  className="cursor-pointer capitalize"
-                  onClick={() => toggleGroup(group)}
-                >
-                  {group}
-                </Badge>
-              ))}
-            </div>
-            <FormMessage>{form.formState.errors.permissionGroups?.message}</FormMessage>
-          </FormItem>
           <FormField
             control={form.control}
             name="status"

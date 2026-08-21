@@ -11,6 +11,10 @@ type SupplierCardProps = {
 
 /** Supplier summary card — used in grid views and the Top Suppliers dashboard widget. */
 export function SupplierCard({ supplier, onClick }: SupplierCardProps) {
+  const badgeVariant = supplier.status === "active" ? "default" : supplier.status === "blocked" ? "destructive" : "outline"
+  const badgeLabel =
+    supplier.status === "active" ? "Active" : supplier.status === "blocked" ? "Blocked" : "Inactive"
+
   return (
     <Card className={onClick ? "cursor-pointer transition-shadow hover:shadow-md" : undefined} onClick={onClick}>
       <CardContent className="flex items-start gap-3">
@@ -20,8 +24,8 @@ export function SupplierCard({ supplier, onClick }: SupplierCardProps) {
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex items-center justify-between gap-2">
             <p className="truncate text-sm font-semibold">{supplier.name}</p>
-            <Badge variant={supplier.status === "active" ? "default" : "outline"} className="shrink-0">
-              {supplier.status === "active" ? "Active" : "Inactive"}
+            <Badge variant={badgeVariant} className="shrink-0">
+              {badgeLabel}
             </Badge>
           </div>
           <p className="font-mono text-xs text-muted-foreground">{supplier.code}</p>
@@ -35,7 +39,7 @@ export function SupplierCard({ supplier, onClick }: SupplierCardProps) {
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <MapPin className="size-3" />
-            <span>{supplier.country}</span>
+            <span>{supplier.country || "-"}</span>
           </div>
           <div className="flex items-center justify-between border-t pt-2 text-sm">
             <span>

@@ -13,6 +13,7 @@ const config: Record<AnyTransactionStatus, { label: string; variant: "default" |
   submitted: { label: "Submitted", variant: "secondary" },
   approved: { label: "Approved", variant: "default" },
   posted: { label: "Posted", variant: "default" },
+  cancelled: { label: "Cancelled", variant: "destructive" },
   created: { label: "Created", variant: "outline" },
   paid: { label: "Paid", variant: "default" },
   reconciled: { label: "Reconciled", variant: "default" },

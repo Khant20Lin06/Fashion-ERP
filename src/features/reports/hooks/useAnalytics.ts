@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { toastApiError } from "@/lib/api/errors"
 import {
   createScheduledReport,
   deleteScheduledReport,
@@ -39,7 +40,7 @@ export function useCreateScheduledReport() {
       queryClient.invalidateQueries({ queryKey: ["reports", "scheduled"] })
       toast.success("Scheduled report created")
     },
-    onError: () => toast.error("Failed to create scheduled report"),
+    onError: (error) => toastApiError(error, "Failed to create scheduled report"),
   })
 }
 
@@ -51,7 +52,7 @@ export function useToggleScheduledReport() {
       queryClient.invalidateQueries({ queryKey: ["reports", "scheduled"] })
       toast.success("Schedule updated")
     },
-    onError: () => toast.error("Failed to update schedule"),
+    onError: (error) => toastApiError(error, "Failed to update schedule"),
   })
 }
 
@@ -63,6 +64,6 @@ export function useDeleteScheduledReport() {
       queryClient.invalidateQueries({ queryKey: ["reports", "scheduled"] })
       toast.success("Scheduled report deleted")
     },
-    onError: () => toast.error("Failed to delete scheduled report"),
+    onError: (error) => toastApiError(error, "Failed to delete scheduled report"),
   })
 }

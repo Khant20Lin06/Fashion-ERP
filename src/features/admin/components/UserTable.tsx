@@ -22,7 +22,10 @@ import { useCompanies } from "../hooks/useRoles"
 import { useDeleteUser, useUsers } from "../hooks/useUsers"
 import type { AdminUser } from "../types"
 
-/** Admin User Management DataTable — the primary /dashboard/admin/users list view. */
+/** Admin User Management DataTable — the primary /dashboard/admin/users list view.
+ * Role/Company are now arrays (a user can hold multiple roles/companies) —
+ * rendered as joined text/badges rather than a single column value, since
+ * the real UserResponseDto has no single roleName/companyName/branchName. */
 export function UserTable() {
   const router = useRouter()
   const { data, isLoading, isError, refetch } = useUsers()
@@ -33,7 +36,7 @@ export function UserTable() {
   const filteredData = useMemo(() => {
     if (!data) return []
     return data.filter((user) => {
-      if (filters.company && user.companyId !== filters.company) return false
+      if (filters.company && !user.companyNames.includes(filters.company)) return false
       if (filters.status && user.status !== filters.status) return false
       return true
     })
@@ -44,7 +47,7 @@ export function UserTable() {
       id: "avatar",
       header: "Avatar",
       enableSorting: false,
-      cell: ({ row }) => <UserAvatar name={row.original.name} photoUrl={row.original.avatarUrl} />,
+      cell: ({ row }) => <UserAvatar name={row.original.name} />,
     },
     {
       accessorKey: "name",
@@ -63,17 +66,28 @@ export function UserTable() {
       header: ({ column }) => <ColumnHeader column={column} title="Email" />,
     },
     {
-      accessorKey: "roleName",
-      header: ({ column }) => <ColumnHeader column={column} title="Role" />,
-      cell: ({ row }) => <RoleBadge roleName={row.getValue("roleName")} />,
+      accessorKey: "roleNames",
+      header: ({ column }) => <ColumnHeader column={column} title="Roles" />,
+      cell: ({ row }) => {
+        const roleNames = row.getValue<string[]>("roleNames")
+        return roleNames.length === 0 ? (
+          <span className="text-muted-foreground">—</span>
+        ) : (
+          <div className="flex flex-wrap gap-1">
+            {roleNames.map((name) => (
+              <RoleBadge key={name} roleName={name} />
+            ))}
+          </div>
+        )
+      },
     },
     {
-      accessorKey: "companyName",
-      header: ({ column }) => <ColumnHeader column={column} title="Company" />,
-    },
-    {
-      accessorKey: "branchName",
-      header: ({ column }) => <ColumnHeader column={column} title="Branch" />,
+      accessorKey: "companyNames",
+      header: ({ column }) => <ColumnHeader column={column} title="Companies" />,
+      cell: ({ row }) => {
+        const companyNames = row.getValue<string[]>("companyNames")
+        return companyNames.length === 0 ? <span className="text-muted-foreground">—</span> : companyNames.join(", ")
+      },
     },
     {
       accessorKey: "status",
@@ -106,7 +120,7 @@ export function UserTable() {
               <Pencil /> Edit
             </DropdownMenuItem>
             <DropdownMenuItem variant="destructive" onClick={() => deleteUser(row.original.id)}>
-              <Trash2 /> Delete
+              <Trash2 /> Deactivate
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -126,7 +140,7 @@ export function UserTable() {
         {
           key: "company",
           label: "Company",
-          options: (companies ?? []).map((c) => ({ label: c.name, value: c.id })),
+          options: (companies ?? []).map((c) => ({ label: c.name, value: c.name })),
         },
         {
           key: "status",
@@ -135,7 +149,7 @@ export function UserTable() {
             { label: "Active", value: "active" },
             { label: "Inactive", value: "inactive" },
             { label: "Locked", value: "locked" },
-            { label: "Pending", value: "pending" },
+            { label: "Suspended", value: "suspended" },
           ],
         },
       ]}

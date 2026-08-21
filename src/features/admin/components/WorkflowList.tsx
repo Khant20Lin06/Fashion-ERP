@@ -4,7 +4,6 @@ import { Workflow as WorkflowIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
-import { ErrorState } from "@/components/ui/error-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useWorkflows } from "../hooks/useWorkflow"
 import type { Workflow, WorkflowStatus } from "../types"
@@ -24,7 +23,7 @@ type WorkflowListProps = {
 
 /** Workflow list — Purchase Order Approval, Leave Request, Expense Reimbursement, etc. */
 export function WorkflowList({ onSelect, selectedId }: WorkflowListProps) {
-  const { data, isLoading, isError, refetch } = useWorkflows()
+  const { data, isLoading, isError } = useWorkflows()
 
   if (isLoading) {
     return (
@@ -36,7 +35,14 @@ export function WorkflowList({ onSelect, selectedId }: WorkflowListProps) {
     )
   }
 
-  if (isError) return <ErrorState message="Couldn't load workflows." onRetry={refetch} />
+  if (isError) {
+    return (
+      <EmptyState
+        title="Workflow Builder not available"
+        description="No backend workflow/automation module exists yet — this screen has no real workflows to design."
+      />
+    )
+  }
 
   if (!data || data.length === 0) {
     return <EmptyState title="No workflows found" description="Create your first workflow to get started." />

@@ -95,15 +95,22 @@ export function ProductForm({ product }: ProductFormProps) {
     }
     setCheckingSku(true)
     const timeout = setTimeout(() => {
-      checkSkuAvailability(sku, product?.id).then((available) => {
-        setSkuAvailable(available)
-        setCheckingSku(false)
-        if (!available) {
-          form.setError("sku", { message: "This SKU is already in use" })
-        } else {
-          form.clearErrors("sku")
-        }
-      })
+      checkSkuAvailability(sku, product?.id)
+        .then((available) => {
+          setSkuAvailable(available)
+          if (!available) {
+            form.setError("sku", { message: "This SKU is already in use" })
+          } else {
+            form.clearErrors("sku")
+          }
+        })
+        .catch(() => {
+          // No live SKU-availability endpoint exists on the backend
+          // (BACKEND GAP) — fail open rather than spin forever. The
+          // backend still enforces uniqueness at submit time.
+          setSkuAvailable(undefined)
+        })
+        .finally(() => setCheckingSku(false))
     }, 400)
     return () => clearTimeout(timeout)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -151,6 +158,18 @@ export function ProductForm({ product }: ProductFormProps) {
                 <CardTitle className="text-base">Basic Information</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {isEditing ? (
+                  <div className="sm:col-span-2">
+                    <p className="text-sm font-medium">Product Code</p>
+                    <p className="text-muted-foreground font-mono text-sm">{product.code ?? "—"}</p>
+                  </div>
+                ) : (
+                  <div className="sm:col-span-2">
+                    <p className="text-sm font-medium">Product Code</p>
+                    <p className="text-muted-foreground text-sm">Generated automatically when the product is created.</p>
+                  </div>
+                )}
+
                 <FormField
                   control={form.control}
                   name="name"

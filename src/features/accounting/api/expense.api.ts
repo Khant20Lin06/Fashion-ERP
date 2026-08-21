@@ -1,4 +1,3 @@
-import { apiClient } from "@/lib/api/client"
 import { env } from "@/config/env"
 import type { Expense, ExpenseStatus } from "../types"
 import type { ExpenseFormValues } from "../schemas/expense.schema"
@@ -10,10 +9,16 @@ function delay<T>(value: T, ms = 200): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms))
 }
 
+// No Expense entity, controller, or DTO exists anywhere in the backend —
+// confirmed by a whole-repo grep (only hit is the unrelated AccountType.Expense
+// enum value). Genuine BACKEND GAP, not a frontend bug: there is no
+// `/accounting/expenses` (or any) route to call. Mock-only until such a
+// concept is added server-side, matching the pattern already used for
+// Purchase Invoices/Returns (Phase 5) and Discounts/Loyalty/Returns (Phase 6).
+
 export async function fetchExpenses(): Promise<Expense[]> {
   if (USE_MOCK) return delay(mockExpenses)
-  const { data } = await apiClient.get<Expense[]>("/accounting/expenses")
-  return data
+  return []
 }
 
 export async function createExpense(values: ExpenseFormValues): Promise<Expense> {
@@ -27,8 +32,7 @@ export async function createExpense(values: ExpenseFormValues): Promise<Expense>
       createdAt: new Date().toISOString(),
     })
   }
-  const { data } = await apiClient.post<Expense>("/accounting/expenses", values)
-  return data
+  throw new Error("Expenses are not available yet.")
 }
 
 export async function updateExpenseStatus(id: string, status: ExpenseStatus): Promise<Expense> {
@@ -37,6 +41,5 @@ export async function updateExpenseStatus(id: string, status: ExpenseStatus): Pr
     if (!existing) throw new Error("Expense not found")
     return delay({ ...existing, status })
   }
-  const { data } = await apiClient.patch<Expense>(`/accounting/expenses/${id}/status`, { status })
-  return data
+  throw new Error("Expenses are not available yet.")
 }

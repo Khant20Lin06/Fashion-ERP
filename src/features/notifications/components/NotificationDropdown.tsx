@@ -1,6 +1,6 @@
 "use client"
 
-import { Bell, CheckCheck } from "lucide-react"
+import { Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -11,18 +11,21 @@ import {
 } from "@/components/ui/popover"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useNotifications, useMarkNotificationsRead } from "../hooks/use-notifications"
+import { useNotifications, useMarkNotificationRead } from "../hooks/use-notifications"
 import { NotificationItem } from "./NotificationItem"
 import type { Notification } from "../types"
 
+// No bulk "mark all read" endpoint exists on the backend — only
+// PATCH /notifications/:id/read, one at a time — so no "Mark all read"
+// action is offered here (matches Phase 10's admin Notification Center).
 export function NotificationDropdown() {
   const { data: notifications, isLoading } = useNotifications()
-  const { markRead, markAllRead } = useMarkNotificationsRead()
+  const { mutate: markRead } = useMarkNotificationRead()
 
   const unreadCount = notifications?.filter((n) => !n.isRead).length ?? 0
 
   function handleSelect(notification: Notification) {
-    if (!notification.isRead) markRead([notification.id])
+    if (!notification.isRead) markRead(notification.id)
   }
 
   return (
@@ -40,12 +43,6 @@ export function NotificationDropdown() {
       <PopoverContent align="end" className="w-96 p-0">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <p className="text-sm font-medium">Notifications</p>
-          {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" onClick={markAllRead} className="h-auto gap-1.5 p-1 text-xs">
-              <CheckCheck className="size-3.5" />
-              Mark all read
-            </Button>
-          )}
         </div>
 
         <ScrollArea className="max-h-96">
