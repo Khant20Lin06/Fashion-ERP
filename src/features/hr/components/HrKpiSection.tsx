@@ -6,7 +6,7 @@ import { formatNumber, formatPercent } from "@/lib/format"
 import type { HrKpis } from "../types"
 
 type HrKpiSectionProps = {
-  kpis: HrKpis | undefined
+  kpis: HrKpis | null | undefined
   isLoading: boolean
 }
 

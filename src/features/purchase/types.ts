@@ -46,9 +46,12 @@ export type PurchaseLineItem = {
   productId: string
   productName: string
   sku: string
+  uomId?: string
+  uomLabel?: string
   color?: string
   size?: string
   quantity: number
+  remainingQty?: number
   unitCost: number
   discount: number
   tax: number
@@ -80,17 +83,94 @@ export type PurchaseRequest = {
   createdAt: string
 }
 
-export type PurchaseOrderStatus = "draft" | "pending_approval" | "approved" | "partially_received" | "received" | "cancelled"
+export type RequestForQuotationStatus = "draft" | "sent" | "closed" | "cancelled"
+
+export type RequestForQuotationItem = {
+  id: string
+  purchaseRfqId: string
+  productId: string
+  productName: string
+  sku: string
+  quantity: number
+  reason: string
+}
+
+export type RequestForQuotation = {
+  id: string
+  rfqNumber: string
+  purchaseRequestId?: string | null
+  title: string
+  requiredDate: string
+  status: RequestForQuotationStatus
+  invitedSupplierIds: string[]
+  items: RequestForQuotationItem[]
+  notes?: string
+  createdAt: string
+}
+
+export type SupplierQuotationStatus = "submitted" | "awarded" | "rejected"
+
+export type SupplierQuotationItem = {
+  id: string
+  supplierQuotationId: string
+  purchaseRfqItemId: string
+  productId: string
+  productName: string
+  sku: string
+  quantity: number
+  unitCost: number
+  discount: number
+  tax: number
+  amount: number
+}
+
+export type SupplierQuotation = {
+  id: string
+  quotationNumber: string
+  purchaseRfqId: string
+  supplierId: string
+  paymentTermId?: string | null
+  leadTimeDays?: number | null
+  status: SupplierQuotationStatus
+  subtotal: number
+  discountTotal: number
+  taxTotal: number
+  grandTotal: number
+  currency: string
+  rfq?: {
+    id: string
+    rfqNumber: string
+    title: string
+    requiredDate: string
+    purchaseRequestId?: string | null
+  }
+  items: SupplierQuotationItem[]
+  notes?: string
+  createdAt: string
+}
+
+export type PurchaseOrderStatus =
+  | "draft"
+  | "pending_approval"
+  | "approved"
+  | "partially_received"
+  | "received"
+  | "rejected"
+  | "closed"
+  | "cancelled"
 
 export type PurchaseOrder = {
   id: string
   poNumber: string
   supplierId: string
+  sourceSupplierQuotationId?: string | null
   supplierName: string
   contact: string
   paymentTerms: string
   date: string
   deliveryDate: string
+  branchId?: string | null
+  warehouseId?: string | null
   status: PurchaseOrderStatus
   itemCount: number
   items: PurchaseLineItem[]
@@ -103,6 +183,7 @@ export type PurchaseOrder = {
 
 export type ReceiptLineItem = {
   id: string
+  purchaseOrderItemId?: string
   productId: string
   productName: string
   sku: string
@@ -113,7 +194,7 @@ export type ReceiptLineItem = {
   rejectedQty: number
 }
 
-export type GoodsReceiptStatus = "draft" | "confirmed"
+export type GoodsReceiptStatus = "confirmed"
 
 export type GoodsReceipt = {
   id: string
@@ -128,6 +209,7 @@ export type GoodsReceipt = {
   items: ReceiptLineItem[]
   receivedBy: string
   receivedAt: string
+  createdAt?: string
 }
 
 export type PaymentStatus = "paid" | "partial" | "unpaid" | "overdue"
@@ -139,15 +221,19 @@ export type PurchaseInvoice = {
   supplierName: string
   purchaseOrderId: string
   poNumber: string
-  items: PurchaseLineItem[]
   subtotal: number
   taxTotal: number
   discountTotal: number
   grandTotal: number
   amountPaid: number
+  creditedAmount: number
+  balanceAmount: number
+  status: "draft" | "posted" | "voided"
   paymentStatus: PaymentStatus
   dueDate: string
   issuedAt: string
+  goodsReceiptIds: string[]
+  currency?: string
 }
 
 export type PaymentMethod = "cash" | "bank_transfer" | "credit" | "mobile_payment"
@@ -163,6 +249,8 @@ export type SupplierPayment = {
   reference: string
   supplierId: string
   supplierName: string
+  purchaseInvoiceId: string
+  invoiceNumber: string
   purchaseOrderId: string
   poNumber: string
   paymentMethodId: string
@@ -174,10 +262,11 @@ export type SupplierPayment = {
 }
 
 export type ReturnReason = "damaged_product" | "wrong_item" | "quality_issue" | "supplier_return"
-export type ReturnStatus = "draft" | "submitted" | "approved" | "completed"
+export type ReturnStatus = "draft" | "completed" | "cancelled"
 
 export type PurchaseReturnItem = {
   id: string
+  purchaseOrderItemId: string
   productId: string
   productName: string
   sku: string
@@ -185,6 +274,7 @@ export type PurchaseReturnItem = {
   size?: string
   quantity: number
   unitCost: number
+  lineTotal?: number
 }
 
 export type PurchaseReturn = {
@@ -192,13 +282,18 @@ export type PurchaseReturn = {
   reference: string
   supplierId: string
   supplierName: string
-  purchaseOrderId?: string
-  poNumber?: string
+  purchaseOrderId: string
+  poNumber: string
+  purchaseInvoiceId: string
+  invoiceNumber: string
   reason: ReturnReason
   status: ReturnStatus
   items: PurchaseReturnItem[]
+  creditAppliedAmount: number
+  supplierCreditAmount: number
   notes?: string
   createdAt: string
+  completedAt?: string
 }
 
 export type PurchaseKpis = {

@@ -25,6 +25,7 @@ type BackendMovementType =
   | "TRANSFER_OUT"
   | "ADJUSTMENT"
   | "OPENING_BALANCE"
+  | "SALE_RETURN"
 
 type BackendLedgerEntry = {
   id: string
@@ -52,7 +53,8 @@ function mapMovementType(type: BackendMovementType): MovementType {
     TRANSFER_IN: "stock_transfer",
     TRANSFER_OUT: "stock_transfer",
     ADJUSTMENT: "stock_adjustment",
-    OPENING_BALANCE: "stock_adjustment",
+    OPENING_BALANCE: "opening_stock",
+    SALE_RETURN: "sale_return",
   }
   return map[type]
 }

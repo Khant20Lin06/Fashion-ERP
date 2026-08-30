@@ -51,6 +51,7 @@ export function SupplierForm({ supplier }: SupplierFormProps) {
       contactPerson: supplier?.contactPerson ?? "",
       phone: supplier?.phone ?? "",
       email: supplier?.email ?? "",
+      country: supplier?.country ?? "",
       paymentTermId: supplier?.paymentTermId ?? "",
       creditDays: supplier?.creditDays ?? 0,
       openingBalanceAmount: (supplier?.openingBalance ?? 0).toFixed(2),
@@ -201,6 +202,20 @@ export function SupplierForm({ supplier }: SupplierFormProps) {
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="country"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Country</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g. Indonesia" {...field} />
+                  </FormControl>
+                  <FormDescription>Country shown in the supplier list and profile.</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </CardContent>
         </Card>
 
@@ -255,7 +270,7 @@ export function SupplierForm({ supplier }: SupplierFormProps) {
                       max={3650}
                       step={1}
                       value={field.value}
-                      onChange={(event) => field.onChange(event.target.value)}
+                      onChange={(event) => field.onChange(event.target.value === "" ? 0 : Number(event.target.value))}
                     />
                   </FormControl>
                   <FormDescription>How many days this supplier extends payment to your company.</FormDescription>

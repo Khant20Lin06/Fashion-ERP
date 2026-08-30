@@ -217,7 +217,7 @@ export const mockMovements: StockMovement[] = [
   {
     id: "mv-5",
     date: daysAgo(5),
-    type: "return",
+    type: "sale_return",
     reference: "RTN-2026-0011",
     productId: "prod-2",
     productName: "Floral Summer Dress",

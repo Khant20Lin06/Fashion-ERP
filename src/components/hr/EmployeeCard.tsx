@@ -5,8 +5,7 @@ import type { Employee, EmployeeStatus } from "@/features/hr/types"
 
 const statusVariant: Record<EmployeeStatus, "default" | "secondary" | "outline" | "destructive"> = {
   active: "default",
-  on_leave: "secondary",
-  suspended: "outline",
+  inactive: "outline",
   terminated: "destructive",
 }
 

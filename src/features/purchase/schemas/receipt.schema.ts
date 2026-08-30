@@ -13,17 +13,24 @@ export const receiptLineSchema = z
     color: z.string().optional(),
     size: z.string().optional(),
     orderedQty: z.number(),
+    remainingQty: z.number().min(0),
     receivedQty: z.number().min(0),
     rejectedQty: z.number().min(0),
   })
-  .refine((data) => data.receivedQty + data.rejectedQty <= data.orderedQty, {
-    message: "Received + rejected cannot exceed ordered quantity",
+  .refine((data) => data.receivedQty + data.rejectedQty > 0, {
+    message: "Receive or reject at least 1 unit",
+    path: ["receivedQty"],
+  })
+  .refine((data) => data.receivedQty + data.rejectedQty <= data.remainingQty, {
+    message: "Received + rejected cannot exceed remaining quantity",
     path: ["receivedQty"],
   })
 
 export const goodsReceiptFormSchema = z.object({
   purchaseOrderId: z.string().min(1, "Purchase order is required"),
   warehouseId: z.string().min(1, "Warehouse is required"),
+  receiptDate: z.string().min(1, "Receipt date is required"),
+  notes: z.string().max(1000, "Notes must be 1000 characters or less").optional(),
   items: z.array(receiptLineSchema).min(1, "No items to receive"),
 })
 

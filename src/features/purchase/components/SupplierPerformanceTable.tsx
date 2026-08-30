@@ -31,15 +31,6 @@ export function SupplierPerformanceTable() {
 
   if (isLoading) return <Skeleton className="h-48 w-full" />
 
-  if (!USE_MOCK) {
-    return (
-      <EmptyState
-        title="Supplier performance not available"
-        description="No backend delivery-time, accuracy, or quality-rating tracking exists yet."
-      />
-    )
-  }
-
   if (!suppliers || suppliers.length === 0) {
     return <EmptyState title="No suppliers" description="Supplier performance will appear here once available." />
   }
@@ -57,15 +48,14 @@ export function SupplierPerformanceTable() {
       </TableHeader>
       <TableBody>
         {suppliers.map((supplier) => {
-          const performance = mockSupplierPerformance[supplier.id]
-          if (!performance) return null
+          const performance = USE_MOCK ? mockSupplierPerformance[supplier.id] : null
           return (
             <TableRow key={supplier.id}>
               <TableCell className="font-medium">{supplier.name}</TableCell>
-              <TableCell>{performance.avgDeliveryDays} days</TableCell>
-              <TableCell>{formatPercent(performance.orderAccuracy)}</TableCell>
-              <TableCell>{performance.qualityRating.toFixed(1)} / 5</TableCell>
-              <TableCell>{formatCurrency(performance.purchaseVolume)}</TableCell>
+              <TableCell>{performance ? `${performance.avgDeliveryDays} days` : "Not tracked"}</TableCell>
+              <TableCell>{performance ? formatPercent(performance.orderAccuracy) : "Not tracked"}</TableCell>
+              <TableCell>{performance ? `${performance.qualityRating.toFixed(1)} / 5` : "Not tracked"}</TableCell>
+              <TableCell>{formatCurrency(performance?.purchaseVolume ?? supplier.totalPurchase)}</TableCell>
             </TableRow>
           )
         })}

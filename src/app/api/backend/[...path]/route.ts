@@ -3,6 +3,28 @@ import { buildBackendUrl } from "@/lib/backend-auth"
 
 const BODYLESS_STATUS_CODES = new Set([204, 205, 304])
 
+function getBackendCandidates(backendPath: string): string[] {
+  return [buildBackendUrl(backendPath)]
+}
+
+async function shouldRetryWithAlternateBackend(
+  response: Response,
+  attemptIndex: number,
+  candidateCount: number
+): Promise<boolean> {
+  if (attemptIndex >= candidateCount - 1 || response.status !== 404 || process.env.NODE_ENV === "production") {
+    return false
+  }
+
+  const contentType = response.headers.get("content-type") ?? ""
+  if (!contentType.includes("application/json")) {
+    return true
+  }
+
+  const body = await response.clone().text()
+  return body.includes('"code":"NOT_FOUND"') && /Cannot (GET|POST|PUT|PATCH|DELETE) \/api\/v1\//.test(body)
+}
+
 /**
  * Catch-all proxy for every client-side `apiClient` call.
  *
@@ -20,10 +42,16 @@ const BODYLESS_STATUS_CODES = new Set([204, 205, 304])
 async function handle(request: Request, path: string[]) {
   const backendPath = `/${path.join("/")}`
   const incomingUrl = new URL(request.url)
-  const targetUrl = `${buildBackendUrl(backendPath)}${incomingUrl.search}`
   const hasBody = request.method !== "GET" && request.method !== "HEAD"
   const requestBody = hasBody ? await request.text() : undefined
-  const shouldForwardBody = requestBody !== undefined && requestBody.length > 0
+  // axios.post(url, null, config) — the idiomatic "no body" call used by
+  // every bodyless action endpoint (confirm/cancel/etc.) — serializes its
+  // null payload to the 4-byte JSON literal "null" rather than omitting
+  // the body. Forwarding that verbatim with Content-Type: application/json
+  // makes the backend's body parser see a non-object JSON value and reject
+  // it, even though the caller intended no body at all.
+  const shouldForwardBody =
+    requestBody !== undefined && requestBody.length > 0 && requestBody !== "null"
 
   const headers = new Headers()
   const contentType = request.headers.get("content-type")
@@ -34,13 +62,39 @@ async function handle(request: Request, path: string[]) {
   if (requestId) headers.set("x-request-id", requestId)
   headers.set("accept", "application/json")
 
-  const backendResponse = await fetch(targetUrl, {
-    method: request.method,
-    headers,
-    body: shouldForwardBody ? requestBody : undefined,
-    cache: "no-store",
-    redirect: "manual",
-  })
+  let backendResponse: Response | null = null
+  let lastError: unknown
+  const candidates = getBackendCandidates(backendPath)
+
+  for (let index = 0; index < candidates.length; index += 1) {
+    const targetUrl = `${candidates[index]}${incomingUrl.search}`
+    try {
+      backendResponse = await fetch(targetUrl, {
+        method: request.method,
+        headers,
+        body: shouldForwardBody ? requestBody : undefined,
+        cache: "no-store",
+        redirect: "manual",
+      })
+    } catch (error) {
+      lastError = error
+      if (index < candidates.length - 1) {
+        continue
+      }
+      throw error
+    }
+
+    if (!(await shouldRetryWithAlternateBackend(backendResponse, index, candidates.length))) {
+      break
+    }
+  }
+
+  if (!backendResponse) {
+    if (lastError) {
+      throw lastError
+    }
+    throw new Error("Backend proxy could not reach any configured backend target.")
+  }
 
   const responseHeaders = new Headers()
   const responseContentType = backendResponse.headers.get("content-type")

@@ -58,7 +58,7 @@ export type MovementType =
   | "sales_delivery"
   | "stock_transfer"
   | "stock_adjustment"
-  | "return"
+  | "sale_return"
   | "damage"
   | "opening_stock"
 

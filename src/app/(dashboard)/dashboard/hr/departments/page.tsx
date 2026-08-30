@@ -26,7 +26,7 @@ export default function DepartmentsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Departments</h1>
-          <p className="text-sm text-muted-foreground">Manage departments, managers, and headcount.</p>
+          <p className="text-sm text-muted-foreground">Manage departments and headcount.</p>
         </div>
         <Button onClick={openCreate}>
           <Plus /> Add Department

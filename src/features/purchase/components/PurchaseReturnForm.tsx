@@ -1,9 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo } from "react"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Plus, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -26,13 +25,13 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { EmptyState } from "@/components/ui/empty-state"
-import { SupplierSelector } from "@/components/purchase/SupplierSelector"
-import { ProductPurchaseSelector } from "@/components/purchase/ProductPurchaseSelector"
 import { QuantityInput } from "@/components/inventory/QuantityInput"
 import { formatCurrency } from "@/lib/format"
-import { useProducts } from "@/features/products/hooks/useProducts"
+import { useGoodsReceipts } from "../hooks/useGoodsReceipt"
 import { purchaseReturnFormSchema, type PurchaseReturnFormValues } from "../schemas/payment.schema"
-import { useCreatePurchaseReturn } from "../hooks/usePayments"
+import { useCreatePurchaseReturn, useInvoices, usePurchaseReturns } from "../hooks/usePayments"
+import { usePurchaseOrders } from "../hooks/usePurchaseOrders"
+import { buildInvoiceWorkflowSnapshots, buildReturnableLinesForInvoice } from "../lib/workflow"
 import type { ReturnReason } from "../types"
 
 const reasonOptions: { value: ReturnReason; label: string }[] = [
@@ -42,39 +41,99 @@ const reasonOptions: { value: ReturnReason; label: string }[] = [
   { value: "supplier_return", label: "Supplier Return" },
 ]
 
-/** Purchase Return form — return products to a supplier with a reason. */
 export function PurchaseReturnForm({ onCreated }: { onCreated?: () => void }) {
-  const { data: products } = useProducts()
+  const { data: invoices } = useInvoices()
+  const { data: purchaseOrders } = usePurchaseOrders()
+  const { data: goodsReceipts } = useGoodsReceipts()
+  const { data: purchaseReturns } = usePurchaseReturns()
   const createReturn = useCreatePurchaseReturn()
-  const [pendingProductId, setPendingProductId] = useState("")
 
   const form = useForm<PurchaseReturnFormValues>({
     resolver: zodResolver(purchaseReturnFormSchema),
-    defaultValues: { supplierId: "", reason: "damaged_product", items: [], notes: "" },
+    defaultValues: {
+      supplierId: "",
+      purchaseInvoiceId: "",
+      reason: "damaged_product",
+      items: [],
+      notes: "",
+    },
   })
 
-  const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" })
+  const { fields, replace } = useFieldArray({ control: form.control, name: "items" })
+  const supplierId = form.watch("supplierId")
+  const purchaseInvoiceId = form.watch("purchaseInvoiceId")
+  const invoiceSnapshots = useMemo(
+    () =>
+      buildInvoiceWorkflowSnapshots(
+        invoices ?? [],
+        purchaseOrders ?? [],
+        goodsReceipts ?? [],
+        purchaseReturns ?? [],
+      ),
+    [goodsReceipts, invoices, purchaseOrders, purchaseReturns],
+  )
+  const supplierInvoices = invoiceSnapshots.filter(
+    (invoice) => invoice.supplierId === supplierId && invoice.returnableQuantity > 0,
+  )
+  const selectedInvoice = invoiceSnapshots.find((invoice) => invoice.id === purchaseInvoiceId)
+  const sourceOrder = (purchaseOrders ?? []).find((order) => order.id === selectedInvoice?.purchaseOrderId)
 
-  function handleAddProduct() {
-    const product = (products ?? []).find((p) => p.id === pendingProductId)
-    if (!product) return
-    append({
-      productId: product.id,
-      productName: product.name,
-      sku: product.sku,
-      quantity: 1,
-      unitCost: 0,
-    })
-    setPendingProductId("")
-  }
+  useEffect(() => {
+    if (!selectedInvoice || !sourceOrder) {
+      replace([])
+      return
+    }
+
+    replace(
+      buildReturnableLinesForInvoice(selectedInvoice, purchaseOrders ?? [], goodsReceipts ?? [], purchaseReturns ?? []).map((item) => ({
+        purchaseOrderItemId: item.purchaseOrderItemId,
+        productId: item.productId,
+        productName: item.productName,
+        sku: item.sku,
+        color: item.color,
+        size: item.size,
+        receivedQty: item.receivedQty,
+        returnedQty: item.returnedQty,
+        quantity: 0,
+        unitCost: item.unitCost,
+        maxQuantity: item.availableQty,
+      })),
+    )
+  }, [goodsReceipts, purchaseInvoiceId, purchaseOrders, purchaseReturns, replace, selectedInvoice, sourceOrder])
+
+  const chosenItems = form.watch("items").filter((item) => item.quantity > 0)
+  const totalValue = chosenItems.reduce((sum, item) => sum + item.quantity * item.unitCost, 0)
 
   function onSubmit(values: PurchaseReturnFormValues) {
-    createReturn.mutate(values, {
-      onSuccess: () => {
-        form.reset({ supplierId: "", reason: "damaged_product", items: [], notes: "" })
-        onCreated?.()
+    const selectedItems = values.items.filter((item) => item.quantity > 0)
+    if (!selectedInvoice || selectedInvoice.returnableQuantity <= 0) {
+      form.setError("purchaseInvoiceId", { message: "This invoice has no received quantity available to return" })
+      return
+    }
+    if (selectedItems.length === 0) {
+      form.setError("items", { message: "Select at least one return line with quantity greater than zero" })
+      return
+    }
+
+    createReturn.mutate(
+      {
+        ...values,
+        items: selectedItems,
       },
-    })
+      {
+        onSuccess: () => {
+          form.reset({
+            supplierId: "",
+            purchaseInvoiceId: "",
+            reason: "damaged_product",
+            items: [],
+            notes: "",
+          })
+          replace([])
+          onCreated?.()
+        },
+      },
+    )
   }
 
   return (
@@ -91,13 +150,63 @@ export function PurchaseReturnForm({ onCreated }: { onCreated?: () => void }) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Supplier</FormLabel>
-                  <FormControl>
-                    <SupplierSelector value={field.value} onChange={field.onChange} />
-                  </FormControl>
+                  <Select
+                    value={field.value}
+                    onValueChange={(value) => {
+                      field.onChange(value)
+                      form.setValue("purchaseInvoiceId", "")
+                    }}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select supplier" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {Array.from(new Map((invoices ?? []).map((invoice) => [invoice.supplierId, invoice.supplierName])).entries()).map(
+                        ([id, name]) => (
+                          <SelectItem key={id} value={id}>
+                            {name}
+                          </SelectItem>
+                        ),
+                      )}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="purchaseInvoiceId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Purchase Invoice</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange} disabled={!supplierId}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={supplierId ? "Select invoice" : "Select a supplier first"} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {supplierInvoices.map((invoice) => (
+                        <SelectItem key={invoice.id} value={invoice.id}>
+                          {invoice.invoiceNumber} - {invoice.poNumber} - returnable {invoice.returnableQuantity} units
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {supplierId && supplierInvoices.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      This supplier has no invoice with received quantity currently available for return.
+                    </p>
+                  ) : null}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name="reason"
@@ -122,14 +231,15 @@ export function PurchaseReturnForm({ onCreated }: { onCreated?: () => void }) {
                 </FormItem>
               )}
             />
+
             <FormField
               control={form.control}
               name="notes"
               render={({ field }) => (
-                <FormItem className="sm:col-span-2">
+                <FormItem>
                   <FormLabel>Notes</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Additional context…" rows={2} {...field} />
+                    <Textarea placeholder="Additional context..." rows={2} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -140,89 +250,105 @@ export function PurchaseReturnForm({ onCreated }: { onCreated?: () => void }) {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Products to Return</CardTitle>
+            <CardTitle className="text-base">Return Lines</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <div className="flex items-end gap-2">
-              <div className="flex-1">
-                <ProductPurchaseSelector value={pendingProductId} onChange={setPendingProductId} />
-              </div>
-              <Button type="button" variant="outline" onClick={handleAddProduct} disabled={!pendingProductId}>
-                <Plus /> Add
-              </Button>
-            </div>
-
-            {fields.length === 0 ? (
-              <EmptyState title="No products added" description="Select a product above to add it to the return." />
+            {!selectedInvoice || !sourceOrder ? (
+              <EmptyState
+                title="Select an invoice"
+                description="Choose a supplier invoice first to load the source purchase order items available for return."
+              />
+            ) : fields.length === 0 ? (
+              <EmptyState title="No line items found" description="This purchase order has no items available to return." />
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Unit Cost</TableHead>
-                    <TableHead className="w-10" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {fields.map((field, index) => (
-                    <TableRow key={field.id}>
-                      <TableCell>
-                        <p className="font-medium">{field.productName}</p>
-                        <p className="font-mono text-xs text-muted-foreground">{field.sku}</p>
-                      </TableCell>
-                      <TableCell>
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.quantity`}
-                          render={({ field: qtyField }) => (
-                            <FormItem>
-                              <FormControl>
-                                <QuantityInput value={qtyField.value} onChange={qtyField.onChange} min={1} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.unitCost`}
-                          render={({ field: costField }) => (
-                            <FormItem>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  step="0.01"
-                                  value={costField.value}
-                                  onChange={(e) => costField.onChange(Number(e.target.value) || 0)}
-                                  className="w-24"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Button type="button" size="icon" variant="ghost" onClick={() => remove(index)} aria-label="Remove line">
-                          <Trash2 className="size-4 text-destructive" />
-                        </Button>
-                      </TableCell>
+              <>
+                <div className="rounded-lg border border-border/70 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+                  Source: {selectedInvoice.invoiceNumber} / {selectedInvoice.poNumber}. Receipt-matched quantity available
+                  for return: {selectedInvoice.returnableQuantity} units. Returned items will reduce stock and apply
+                  supplier credit when the return is completed.
+                </div>
+
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Product</TableHead>
+                      <TableHead>Received</TableHead>
+                      <TableHead>Already Returned</TableHead>
+                      <TableHead>Available</TableHead>
+                      <TableHead>Return Qty</TableHead>
+                      <TableHead>Unit Cost</TableHead>
+                      <TableHead>Line Total</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {fields.map((field, index) => {
+                      const maxQuantity = form.watch(`items.${index}.maxQuantity`) ?? 0
+                      const receivedQty = form.watch(`items.${index}.receivedQty`) ?? 0
+                      const returnedQty = form.watch(`items.${index}.returnedQty`) ?? 0
+                      const quantity = form.watch(`items.${index}.quantity`) ?? 0
+                      const unitCost = form.watch(`items.${index}.unitCost`) ?? 0
+                      return (
+                        <TableRow key={field.id}>
+                          <TableCell>
+                            <p className="font-medium">{field.productName}</p>
+                            <p className="font-mono text-xs text-muted-foreground">{field.sku}</p>
+                          </TableCell>
+                          <TableCell>{receivedQty}</TableCell>
+                          <TableCell>{returnedQty}</TableCell>
+                          <TableCell>{maxQuantity}</TableCell>
+                          <TableCell className="w-40">
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.quantity`}
+                              render={({ field: qtyField }) => (
+                                <FormItem>
+                                  <FormControl>
+                                    <QuantityInput
+                                      value={qtyField.value}
+                                      onChange={(nextValue) =>
+                                        qtyField.onChange(Math.max(0, Math.min(nextValue, maxQuantity)))
+                                      }
+                                      min={0}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </TableCell>
+                          <TableCell className="w-36">
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.unitCost`}
+                              render={({ field: costField }) => (
+                                <FormItem>
+                                  <FormControl>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      step="0.01"
+                                      value={costField.value}
+                                      onChange={(e) => costField.onChange(Number(e.target.value) || 0)}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </TableCell>
+                          <TableCell>{formatCurrency(quantity * unitCost)}</TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </>
             )}
-            {fields.length > 0 && (
-              <p className="text-sm text-muted-foreground">
-                Total return value:{" "}
-                {formatCurrency(
-                  form.watch("items").reduce((sum, item) => sum + item.quantity * item.unitCost, 0)
-                )}
-              </p>
+
+            {chosenItems.length > 0 && (
+              <div className="rounded-lg border border-border/70 px-4 py-3 text-sm text-muted-foreground">
+                Estimated return value: <span className="font-semibold text-foreground">{formatCurrency(totalValue)}</span>
+              </div>
             )}
           </CardContent>
         </Card>

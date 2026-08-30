@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Plus } from "lucide-react"
+import { FileSpreadsheet, Plus, Ruler } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ProductTable } from "@/features/products/components/ProductTable"
 
@@ -17,11 +17,23 @@ export default function ProductsPage() {
             Manage your product catalog, variants, pricing, and stock levels.
           </p>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/products/create">
-            <Plus /> Add Product
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline">
+            <Link href="/dashboard/products/uoms">
+              <Ruler /> Manage UOM
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/dashboard/products/price-lists">
+              <FileSpreadsheet /> Price Lists
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/dashboard/products/create">
+              <Plus /> Add Product
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <ProductTable />

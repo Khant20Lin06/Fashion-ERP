@@ -1,5 +1,6 @@
 "use client"
 
+import { useMemo } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
@@ -16,14 +17,19 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { SupplierSelector } from "@/components/purchase/SupplierSelector"
-import { formatCurrency } from "@/lib/format"
+import { formatCurrency, formatPercent } from "@/lib/format"
+import { useGoodsReceipts } from "../hooks/useGoodsReceipt"
 import { paymentFormSchema, type PaymentFormValues } from "../schemas/payment.schema"
-import { useCreatePayment, usePaymentMethods } from "../hooks/usePayments"
+import { useCreatePayment, useInvoices, usePaymentMethods, usePurchaseReturns } from "../hooks/usePayments"
 import { usePurchaseOrders } from "../hooks/usePurchaseOrders"
+import { buildInvoiceWorkflowSnapshots } from "../lib/workflow"
 
-/** Supplier Payment form — pay against an outstanding purchase order. */
+/** Supplier Payment form - pay against an outstanding purchase invoice. */
 export function PaymentForm({ onSubmitted }: { onSubmitted?: () => void }) {
+  const { data: invoices } = useInvoices()
   const { data: purchaseOrders } = usePurchaseOrders()
+  const { data: goodsReceipts } = useGoodsReceipts()
+  const { data: purchaseReturns } = usePurchaseReturns()
   const { data: paymentMethods } = usePaymentMethods()
   const createPayment = useCreatePayment()
 
@@ -31,7 +37,7 @@ export function PaymentForm({ onSubmitted }: { onSubmitted?: () => void }) {
     resolver: zodResolver(paymentFormSchema),
     defaultValues: {
       supplierId: "",
-      purchaseOrderId: "",
+      purchaseInvoiceId: "",
       paymentMethodId: "",
       paymentDate: new Date().toISOString().slice(0, 10),
       amount: 0,
@@ -41,19 +47,44 @@ export function PaymentForm({ onSubmitted }: { onSubmitted?: () => void }) {
   })
 
   const supplierId = form.watch("supplierId")
-  const purchaseOrderId = form.watch("purchaseOrderId")
-  const supplierPurchaseOrders = (purchaseOrders ?? []).filter(
-    (order) => order.supplierId === supplierId && order.status !== "cancelled"
+  const purchaseInvoiceId = form.watch("purchaseInvoiceId")
+  const invoiceSnapshots = useMemo(
+    () =>
+      buildInvoiceWorkflowSnapshots(
+        invoices ?? [],
+        purchaseOrders ?? [],
+        goodsReceipts ?? [],
+        purchaseReturns ?? [],
+      ),
+    [goodsReceipts, invoices, purchaseOrders, purchaseReturns],
   )
-  const selectedOrder = (purchaseOrders ?? []).find((o) => o.id === purchaseOrderId)
-  const outstandingOnOrder = selectedOrder ? selectedOrder.grandTotal : undefined
+  const supplierInvoices = invoiceSnapshots.filter(
+    (invoice) => invoice.supplierId === supplierId && invoice.balanceAmount > 0,
+  )
+  const paymentReadyInvoices = supplierInvoices.filter((invoice) => invoice.paymentReadiness === "ready")
+  const selectedInvoice = invoiceSnapshots.find((invoice) => invoice.id === purchaseInvoiceId)
+  const outstandingBalance = selectedInvoice?.balanceAmount
 
   function onSubmit(values: PaymentFormValues) {
+    if (!selectedInvoice) {
+      form.setError("purchaseInvoiceId", { message: "Select a purchase invoice" })
+      return
+    }
+    if (selectedInvoice.paymentReadiness !== "ready") {
+      form.setError("purchaseInvoiceId", {
+        message: selectedInvoice.paymentBlockedReason ?? "This invoice is not ready for payment",
+      })
+      return
+    }
+    if (values.amount > selectedInvoice.balanceAmount) {
+      form.setError("amount", { message: "Payment amount cannot exceed the outstanding balance" })
+      return
+    }
     createPayment.mutate(values, {
       onSuccess: () => {
         form.reset({
           supplierId: "",
-          purchaseOrderId: "",
+          purchaseInvoiceId: "",
           paymentMethodId: "",
           paymentDate: new Date().toISOString().slice(0, 10),
           amount: 0,
@@ -84,7 +115,8 @@ export function PaymentForm({ onSubmitted }: { onSubmitted?: () => void }) {
                       value={field.value}
                       onChange={(id) => {
                         field.onChange(id)
-                        form.setValue("purchaseOrderId", "")
+                        form.setValue("purchaseInvoiceId", "")
+                        form.setValue("amount", 0)
                       }}
                     />
                   </FormControl>
@@ -95,24 +127,45 @@ export function PaymentForm({ onSubmitted }: { onSubmitted?: () => void }) {
 
             <FormField
               control={form.control}
-              name="purchaseOrderId"
+              name="purchaseInvoiceId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Purchase Order</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange} disabled={!supplierId}>
+                  <FormLabel>Purchase Invoice</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={(value) => {
+                      field.onChange(value)
+                      const invoice = supplierInvoices.find((entry) => entry.id === value)
+                      if (invoice) {
+                        form.setValue("amount", invoice.balanceAmount)
+                      }
+                    }}
+                    disabled={!supplierId}
+                  >
                     <FormControl>
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder={supplierId ? "Select purchase order" : "Select a supplier first"} />
+                        <SelectValue placeholder={supplierId ? "Select purchase invoice" : "Select a supplier first"} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {supplierPurchaseOrders.map((order) => (
-                        <SelectItem key={order.id} value={order.id}>
-                          {order.poNumber} — {formatCurrency(order.grandTotal)}
+                      {supplierInvoices.map((invoice) => (
+                        <SelectItem
+                          key={invoice.id}
+                          value={invoice.id}
+                          disabled={invoice.paymentReadiness !== "ready"}
+                        >
+                          {invoice.invoiceNumber} - {invoice.poNumber} - due{" "}
+                          {new Date(invoice.dueDate).toLocaleDateString()} - {formatCurrency(invoice.balanceAmount)} -{" "}
+                          {invoice.paymentReadinessLabel}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {supplierId && supplierInvoices.length > 0 && paymentReadyInvoices.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      This supplier has open invoices, but none are receipt-matched and payment-ready yet.
+                    </p>
+                  ) : null}
                   <FormMessage />
                 </FormItem>
               )}
@@ -137,7 +190,9 @@ export function PaymentForm({ onSubmitted }: { onSubmitted?: () => void }) {
               name="amount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Amount{outstandingOnOrder !== undefined ? ` (${formatCurrency(outstandingOnOrder)} order total)` : ""}</FormLabel>
+                  <FormLabel>
+                    Amount{outstandingBalance !== undefined ? ` (${formatCurrency(outstandingBalance)} outstanding)` : ""}
+                  </FormLabel>
                   <FormControl>
                     <Input
                       type="number"
@@ -198,17 +253,37 @@ export function PaymentForm({ onSubmitted }: { onSubmitted?: () => void }) {
                 <FormItem className="sm:col-span-2">
                   <FormLabel>Notes</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Additional notes…" rows={2} {...field} />
+                    <Textarea placeholder="Additional notes..." rows={2} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
+            {selectedInvoice ? (
+              <div className="rounded-lg border border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground sm:col-span-2">
+                <p className="font-medium text-foreground">{selectedInvoice.invoiceNumber}</p>
+                <p>
+                  Receipt match: {selectedInvoice.goodsReceiptCount} GRN linked,{" "}
+                  {formatPercent(selectedInvoice.receiptCoveragePercent)} received coverage.
+                </p>
+                <p>
+                  Payment readiness: {selectedInvoice.paymentReadinessLabel}
+                  {selectedInvoice.paymentBlockedReason ? ` - ${selectedInvoice.paymentBlockedReason}` : ""}
+                </p>
+                {selectedInvoice.supplierCreditAmount > 0 ? (
+                  <p>Supplier credit already available: {formatCurrency(selectedInvoice.supplierCreditAmount)}</p>
+                ) : null}
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 
         <div className="flex justify-end">
-          <Button type="submit" disabled={createPayment.isPending}>
+          <Button
+            type="submit"
+            disabled={createPayment.isPending || !selectedInvoice || selectedInvoice.paymentReadiness !== "ready"}
+          >
             Record Payment
           </Button>
         </div>

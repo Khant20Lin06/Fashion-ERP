@@ -1,14 +1,13 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { MetricCard, MetricCardSkeleton } from "@/components/reports/MetricCard"
 import { ReportTable } from "@/components/reports/ReportTable"
 import { ExportMenu } from "@/components/reports/ExportMenu"
+import { MetricCard, MetricCardSkeleton } from "@/components/reports/MetricCard"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
+  CostChangeChart,
   PurchaseTrendChart,
   SupplierComparisonChart,
-  CostChangeChart,
 } from "@/features/reports/charts/PurchaseChart"
 import {
   useCostChangeAnalysis,
@@ -19,10 +18,12 @@ import {
 } from "@/features/reports/hooks/useReports"
 import { formatCurrency, formatPercent } from "@/lib/format"
 
-const paymentStatusVariant: Record<string, "default" | "secondary" | "outline"> = {
-  paid: "default",
-  partial: "secondary",
-  unpaid: "outline",
+function renderTrackedPercent(value?: number | null) {
+  return typeof value === "number" ? formatPercent(value) : "Not tracked"
+}
+
+function renderTrackedScore(value?: number | null) {
+  return typeof value === "number" ? `${value.toFixed(1)} / 5` : "Not tracked"
 }
 
 export default function PurchaseReportPage() {
@@ -34,27 +35,31 @@ export default function PurchaseReportPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Purchase Analytics</h1>
-        <p className="text-sm text-muted-foreground">Procurement spend, supplier performance, and cost trends.</p>
+        <p className="max-w-3xl text-sm text-muted-foreground">
+          Live data is currently available for purchase spend, draft order count, and supplier totals from confirmed
+          purchase orders. Supplier quality, delivery-rate, and historical cost-change analytics are still pending
+          dedicated backend support.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {loadingMetrics || !metrics ? (
-          Array.from({ length: 4 }).map((_, i) => <MetricCardSkeleton key={i} />)
+          Array.from({ length: 4 }).map((_, index) => <MetricCardSkeleton key={index} />)
         ) : (
           <>
             <MetricCard label="Total Purchase" value={formatCurrency(metrics.totalPurchase)} />
             <MetricCard label="Supplier Count" value={String(metrics.supplierCount)} />
-            <MetricCard label="Pending Orders" value={String(metrics.pendingOrders)} />
-            <MetricCard label="Average Cost" value={formatCurrency(metrics.averageCost)} />
+            <MetricCard label="Draft Orders" value={String(metrics.pendingOrders)} />
+            <MetricCard label="Average PO Value" value={formatCurrency(metrics.averageCost)} />
           </>
         )}
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Purchase Trend</CardTitle>
+          <CardTitle className="text-base">Purchase Spend Trend</CardTitle>
         </CardHeader>
         <CardContent>
           <PurchaseTrendChart data={trendData ?? []} />
@@ -64,7 +69,7 @@ export default function PurchaseReportPage() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Supplier Comparison</CardTitle>
+            <CardTitle className="text-base">Supplier Spend Comparison</CardTitle>
           </CardHeader>
           <CardContent>
             <SupplierComparisonChart data={comparisonData ?? []} />
@@ -75,15 +80,27 @@ export default function PurchaseReportPage() {
             <CardTitle className="text-base">Cost Change Analysis</CardTitle>
           </CardHeader>
           <CardContent>
-            <CostChangeChart data={costChangeData ?? []} />
+            {costChangeData && costChangeData.length > 0 ? (
+              <CostChangeChart data={costChangeData} />
+            ) : (
+              <div className="rounded-lg border border-dashed border-border bg-muted/20 px-4 py-10 text-sm text-muted-foreground">
+                Historical product-cost comparison is not exposed by the backend yet. This panel will go live once
+                purchase cost history reporting is implemented server-side.
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Supplier Performance</CardTitle>
-          <ExportMenu data={supplierRows ?? []} filename="supplier-performance" />
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <CardTitle className="text-base">Supplier Totals</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Delivery-rate and quality columns remain visible for roadmap clarity, but they are not tracked yet.
+            </p>
+          </div>
+          <ExportMenu data={supplierRows ?? []} filename="purchase-supplier-totals" />
         </CardHeader>
         <CardContent>
           <ReportTable
@@ -92,17 +109,18 @@ export default function PurchaseReportPage() {
             getRowKey={(row) => row.supplierId}
             columns={[
               { key: "supplierName", header: "Supplier", cell: (row) => row.supplierName },
+              { key: "supplierCode", header: "Code", cell: (row) => row.supplierCode },
+              { key: "purchaseOrderCount", header: "PO Count", cell: (row) => row.purchaseOrderCount },
               { key: "purchaseAmount", header: "Purchase Amount", cell: (row) => formatCurrency(row.purchaseAmount) },
-              { key: "deliveryRatePercent", header: "Delivery Rate", cell: (row) => formatPercent(row.deliveryRatePercent) },
-              { key: "qualityScore", header: "Quality Score", cell: (row) => `${row.qualityScore.toFixed(1)} / 5` },
               {
-                key: "paymentStatus",
-                header: "Payment Status",
-                cell: (row) => (
-                  <Badge variant={paymentStatusVariant[row.paymentStatus]} className="capitalize">
-                    {row.paymentStatus}
-                  </Badge>
-                ),
+                key: "deliveryRatePercent",
+                header: "Delivery Rate",
+                cell: (row) => renderTrackedPercent(row.deliveryRatePercent),
+              },
+              {
+                key: "qualityScore",
+                header: "Quality Score",
+                cell: (row) => renderTrackedScore(row.qualityScore),
               },
             ]}
           />

@@ -4,6 +4,7 @@ import * as React from "react"
 import { ScrollArea as ScrollAreaPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
+import { buildScrollAreaRootClassName } from "./scroll-area.classes"
 
 function ScrollArea({
   className,
@@ -13,7 +14,7 @@ function ScrollArea({
   return (
     <ScrollAreaPrimitive.Root
       data-slot="scroll-area"
-      className={cn("relative", className)}
+      className={buildScrollAreaRootClassName(className)}
       {...props}
     >
       <ScrollAreaPrimitive.Viewport

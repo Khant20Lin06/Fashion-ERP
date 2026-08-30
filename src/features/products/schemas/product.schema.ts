@@ -13,6 +13,18 @@ const optionalCodeSchema = z.preprocess(
     .optional()
 )
 
+const requiredCodeSchema = z.preprocess(
+  (value) => {
+    if (typeof value !== "string") return value
+    return value.trim().toUpperCase()
+  },
+  z
+    .string()
+    .min(1, "Code is required")
+    .max(50)
+    .regex(/^[A-Z0-9_-]+$/, "Use uppercase letters, numbers, - and _ only")
+)
+
 const optionalSwatchSchema = z.preprocess(
   (value) => {
     if (typeof value !== "string") return value
@@ -38,6 +50,7 @@ export const basicInfoSchema = z.object({
 
 export const pricingSchema = z
   .object({
+    baseUomId: z.string().optional(),
     costPrice: z.number().min(0, "Cost price must be positive"),
     sellingPrice: z.number().positive("Selling price must be positive"),
     discountPrice: z.number().min(0).optional(),
@@ -63,6 +76,7 @@ export const variantSchema = z.object({
   costPrice: z.number().min(0),
   sellingPrice: z.number().positive("Price must be positive"),
   stockQuantity: z.number().int().min(0),
+  baseUomId: z.string().optional(),
   status: z.enum(["active", "inactive"]),
 })
 
@@ -71,6 +85,7 @@ export const productFormSchema = z.object({
   // maps to initialVariant.sku on create (CreateProductVariantDto, backend max length 100)
   sku: z.string().min(1, "SKU is required").max(100, "SKU must be 100 characters or fewer"),
   status: z.enum(["active", "draft", "archived"]),
+  baseUomId: z.string().optional(),
   costPrice: z.number().min(0),
   sellingPrice: z.number().positive("Selling price must be positive"),
   discountPrice: z.number().min(0).optional(),
@@ -102,6 +117,63 @@ export const brandFormSchema = z.object({
 
 export type BrandFormInput = z.input<typeof brandFormSchema>
 export type BrandFormValues = z.output<typeof brandFormSchema>
+
+export const uomFormSchema = z.object({
+  code: requiredCodeSchema,
+  name: z.string().min(1, "UOM name is required").max(100),
+  symbol: z.string().max(20).optional(),
+  category: z.enum(["COUNT", "WEIGHT", "VOLUME", "LENGTH", "AREA"]),
+  decimalPlaces: z.number().int().min(0).max(6),
+  isActive: z.boolean(),
+})
+
+export type UomFormInput = z.input<typeof uomFormSchema>
+export type UomFormValues = z.output<typeof uomFormSchema>
+
+export const variantUomMappingFormSchema = z.object({
+  uomId: z.string().min(1, "UOM is required"),
+  conversionFactorToBase: z.string().regex(/^(?!0+(?:\.0+)?$)\d+(\.\d{1,4})?$/, "Use a positive conversion factor"),
+  usageType: z.enum(["SALES", "PURCHASE", "BOTH"]),
+  barcode: z.string().max(100).optional(),
+  isActive: z.boolean(),
+})
+
+export type VariantUomMappingFormInput = z.input<typeof variantUomMappingFormSchema>
+export type VariantUomMappingFormValues = z.output<typeof variantUomMappingFormSchema>
+
+export const priceListFormSchema = z.object({
+  code: requiredCodeSchema,
+  name: z.string().min(1, "Price list name is required").max(200),
+  description: z.string().max(500).optional(),
+  currency: z
+    .string()
+    .length(3, "Currency must be a 3-letter ISO code")
+    .regex(/^[A-Z]{3}$/, "Use a 3-letter ISO code like USD"),
+  isActive: z.boolean(),
+})
+
+export type PriceListFormInput = z.input<typeof priceListFormSchema>
+export type PriceListFormValues = z.output<typeof priceListFormSchema>
+
+export const priceListItemFormSchema = z
+  .object({
+    productVariantId: z.string().min(1, "Variant is required"),
+    uomId: z.string().min(1, "UOM is required"),
+    price: z.string().regex(/^(?!0+(?:\.0+)?$)\d+(\.\d{1,2})?$/, "Use a positive amount"),
+    validFrom: z.string().min(1, "Valid from date is required"),
+    validTo: z.string().optional(),
+    isActive: z.boolean(),
+  })
+  .refine((value) => {
+    if (!value.validTo) return true
+    return new Date(value.validTo).getTime() > new Date(value.validFrom).getTime()
+  }, {
+    message: "Valid to must be after valid from",
+    path: ["validTo"],
+  })
+
+export type PriceListItemFormInput = z.input<typeof priceListItemFormSchema>
+export type PriceListItemFormValues = z.output<typeof priceListItemFormSchema>
 
 export const attributeOptionFormSchema = z.object({
   value: z.string().min(1, "Value is required"),

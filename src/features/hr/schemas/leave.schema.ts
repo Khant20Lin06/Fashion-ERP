@@ -3,7 +3,7 @@ import { z } from "zod"
 export const leaveRequestFormSchema = z
   .object({
     employeeId: z.string().min(1, "Employee is required"),
-    type: z.enum(["annual", "sick", "emergency", "unpaid", "maternity"]),
+    type: z.string().min(1, "Leave type is required"),
     startDate: z.string().min(1, "Start date is required"),
     endDate: z.string().min(1, "End date is required"),
     reason: z.string().min(1, "Reason is required").max(1000),

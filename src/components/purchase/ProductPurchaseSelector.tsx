@@ -1,17 +1,17 @@
 "use client"
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useProducts } from "@/features/products/hooks/useProducts"
+import { useAllProductsFull } from "@/features/products/hooks/useProducts"
 
 type ProductPurchaseSelectorProps = {
   value: string | undefined
-  onChange: (productId: string) => void
+  onChange: (variantId: string) => void
   placeholder?: string
 }
 
-/** Dropdown for selecting a product to add to a Purchase Request/Order/Return line. */
+/** Variant dropdown for purchase request/return lines that must keep the real SKU identity. */
 export function ProductPurchaseSelector({ value, onChange, placeholder = "Select product" }: ProductPurchaseSelectorProps) {
-  const { data: products } = useProducts()
+  const { data: products } = useAllProductsFull()
 
   return (
     <Select value={value} onValueChange={onChange}>
@@ -19,11 +19,15 @@ export function ProductPurchaseSelector({ value, onChange, placeholder = "Select
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
-        {(products ?? []).map((product) => (
-          <SelectItem key={product.id} value={product.id}>
-            {product.name} — {product.sku}
-          </SelectItem>
-        ))}
+        {(products ?? []).flatMap((product) =>
+          product.variants
+            .filter((variant) => variant.status === "active")
+            .map((variant) => (
+              <SelectItem key={variant.id} value={variant.id}>
+                {product.name} - {variant.sku}
+              </SelectItem>
+            )),
+        )}
       </SelectContent>
     </Select>
   )

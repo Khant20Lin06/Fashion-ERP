@@ -1,16 +1,21 @@
 "use client"
 
+import { useEffect } from "react"
 import { ShoppingCart, Tag } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CartItem } from "@/components/sales/CartItem"
 import { formatCurrency } from "@/lib/format"
 import { useAuthStore } from "@/stores/auth.store"
 import { hasPermission } from "@/types/user"
+import { useSalesPriceLists } from "../hooks/useSales"
 import { CustomerSelector } from "./CustomerSelector"
 import { cartTotals, useCartStore } from "../stores/cart.store"
+import { buildCartItemsRegionClassName, buildPosScrollablePaneClassName } from "./pos-layout.classes"
 
 type CartPanelProps = {
   onCheckout: () => void
@@ -18,8 +23,21 @@ type CartPanelProps = {
 
 /** POS cart panel -- line items, customer selection, promotion code, discount, tax, totals, and checkout trigger. */
 export function CartPanel({ onCheckout }: CartPanelProps) {
-  const { items, customerId, promotionCode, removeItem, setQuantity, setDiscount, setCustomer, setPromotionCode, clearCart } =
+  const {
+    items,
+    customerId,
+    priceListId,
+    promotionCode,
+    removeItem,
+    setQuantity,
+    setDiscount,
+    setCustomer,
+    setPriceListId,
+    setPromotionCode,
+    clearCart,
+  } =
     useCartStore()
+  const { data: priceLists = [] } = useSalesPriceLists()
   const totals = cartTotals(items)
   const user = useAuthStore((state) => state.user)
   // Real backend requirement: POST /sales additionally requires
@@ -32,15 +50,52 @@ export function CartPanel({ onCheckout }: CartPanelProps) {
   // for users without it avoids letting them fill in values that would
   // just 403 at submit.
   const canApplyDiscount = hasPermission(user, "sales", "approve")
+  const requiresExplicitPriceList = priceLists.length !== 1
+  const isPriceListMissing = requiresExplicitPriceList && !priceListId
+
+  useEffect(() => {
+    if (priceLists.length === 1 && priceListId !== priceLists[0].id) {
+      setPriceListId(priceLists[0].id)
+      return
+    }
+    if (priceListId && !priceLists.some((entry) => entry.id === priceListId)) {
+      setPriceListId(priceLists.length === 1 ? priceLists[0].id : undefined)
+    }
+  }, [priceListId, priceLists, setPriceListId])
 
   return (
-    <Card className="flex max-h-full flex-col">
+    <Card className={buildPosScrollablePaneClassName()}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <ShoppingCart className="size-4" /> Cart
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-4 overflow-hidden">
+        <div className="space-y-1.5">
+          <Label>Sales Price List</Label>
+          <Select value={priceListId} onValueChange={setPriceListId} disabled={items.length > 0 || priceLists.length === 0}>
+            <SelectTrigger>
+              <SelectValue placeholder={priceLists.length === 0 ? "No active price list" : "Select a price list"} />
+            </SelectTrigger>
+            <SelectContent>
+              {priceLists.map((priceList) => (
+                <SelectItem key={priceList.id} value={priceList.id}>
+                  {priceList.name} ({priceList.code})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {items.length > 0 ? (
+            <p className="text-xs text-muted-foreground">Clear the cart before switching to another sales price list.</p>
+          ) : null}
+          {isPriceListMissing ? (
+            <p className="text-xs text-destructive">Select a sales price list before adding products to this cart.</p>
+          ) : null}
+          {priceLists.length === 0 ? (
+            <p className="text-xs text-destructive">No active sales price list is available for this company.</p>
+          ) : null}
+        </div>
+
         <CustomerSelector value={customerId} onChange={setCustomer} allowWalkIn placeholder="Walk-in Customer" />
 
         {canApplyDiscount && (
@@ -57,12 +112,12 @@ export function CartPanel({ onCheckout }: CartPanelProps) {
           </div>
         )}
 
-        <div className={items.length === 0 ? "flex flex-1 flex-col overflow-y-auto" : "min-h-0 overflow-y-auto"}>
+        <div className={buildCartItemsRegionClassName()}>
           {items.length === 0 ? (
             <EmptyState
               title="Cart is empty"
               description="Tap a product to add it to the cart."
-              className="flex-1 justify-center border-none"
+              className="flex min-h-full justify-center border-none"
             />
           ) : (
             <div className="flex flex-col gap-3">
@@ -103,7 +158,7 @@ export function CartPanel({ onCheckout }: CartPanelProps) {
               <Button variant="outline" className="flex-1" onClick={clearCart}>
                 Clear
               </Button>
-              <Button className="flex-1" onClick={onCheckout}>
+              <Button className="flex-1" onClick={onCheckout} disabled={isPriceListMissing}>
                 Charge {formatCurrency(totals.grandTotal)}
               </Button>
             </div>

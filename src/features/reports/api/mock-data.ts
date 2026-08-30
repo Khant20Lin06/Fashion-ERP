@@ -177,10 +177,10 @@ export const purchaseReportMetrics: PurchaseReportMetrics = {
 }
 
 export const supplierPerformanceRows: SupplierPerformanceRow[] = [
-  { supplierId: "sup-1", supplierName: "Nike Apparel Co.", purchaseAmount: 185000, deliveryRatePercent: 97, qualityScore: 4.6, paymentStatus: "partial" },
-  { supplierId: "sup-2", supplierName: "Zara Textile Group", purchaseAmount: 98000, deliveryRatePercent: 92, qualityScore: 4.2, paymentStatus: "unpaid" },
-  { supplierId: "sup-3", supplierName: "Bangkok Fabric Mills", purchaseAmount: 42000, deliveryRatePercent: 88, qualityScore: 3.9, paymentStatus: "unpaid" },
-  { supplierId: "sup-4", supplierName: "H&M Sourcing Partner", purchaseAmount: 25000, deliveryRatePercent: 85, qualityScore: 3.7, paymentStatus: "paid" },
+  { supplierId: "sup-1", supplierCode: "SUP-001", supplierName: "Nike Apparel Co.", purchaseOrderCount: 18, purchaseAmount: 185000, deliveryRatePercent: 97, qualityScore: 4.6, paymentStatus: "partial" },
+  { supplierId: "sup-2", supplierCode: "SUP-002", supplierName: "Zara Textile Group", purchaseOrderCount: 11, purchaseAmount: 98000, deliveryRatePercent: 92, qualityScore: 4.2, paymentStatus: "unpaid" },
+  { supplierId: "sup-3", supplierCode: "SUP-003", supplierName: "Bangkok Fabric Mills", purchaseOrderCount: 6, purchaseAmount: 42000, deliveryRatePercent: 88, qualityScore: 3.9, paymentStatus: "unpaid" },
+  { supplierId: "sup-4", supplierCode: "SUP-004", supplierName: "H&M Sourcing Partner", purchaseOrderCount: 4, purchaseAmount: 25000, deliveryRatePercent: 85, qualityScore: 3.7, paymentStatus: "paid" },
 ]
 
 export const purchaseTrend: PurchaseTrendPoint[] = [
@@ -270,11 +270,23 @@ export const colorAnalysis: ColorAnalysisPoint[] = [
 ]
 
 export const financialOverview: FinancialOverview = {
+  fromDate: "2026-07-01",
+  toDate: "2026-07-31",
   revenue: 2450000,
-  costOfGoodsSold: 1225000,
-  grossProfit: 1225000,
   expenses: 375000,
+  operatingResult: 2075000,
   netProfit: 850000,
+  revenueRows: [
+    { accountId: "acc-revenue-1", accountCode: "4100", accountName: "Retail Sales", amount: 1865000 },
+    { accountId: "acc-revenue-2", accountCode: "4200", accountName: "Wholesale Sales", amount: 585000 },
+  ],
+  expenseRows: [
+    { accountId: "acc-expense-1", accountCode: "6100", accountName: "Rent Expense", amount: 120000 },
+    { accountId: "acc-expense-2", accountCode: "6200", accountName: "Payroll Expense", amount: 180000 },
+    { accountId: "acc-expense-3", accountCode: "6300", accountName: "Marketing Expense", amount: 45000 },
+    { accountId: "acc-expense-4", accountCode: "6400", accountName: "Utilities Expense", amount: 18000 },
+    { accountId: "acc-expense-5", accountCode: "6900", accountName: "Other Operating Expense", amount: 12000 },
+  ],
 }
 
 export const profitTrend: ProfitTrendPoint[] = [

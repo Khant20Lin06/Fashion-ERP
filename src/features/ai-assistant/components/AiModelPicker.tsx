@@ -11,6 +11,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
+import { buildNativeScrollbarClassName } from "@/components/ui/native-scrollbar.classes"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import type { AiModelInfo } from "../api/ai-chat.api"
@@ -67,7 +68,7 @@ export function AiModelPicker({
           <CommandInput placeholder="Search models…" />
           <CommandList
             hideScrollbar={false}
-            className="max-h-80 pr-1 [scrollbar-color:var(--color-border)_transparent] [scrollbar-width:auto] [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-transparent"
+            className={buildNativeScrollbarClassName("max-h-80")}
           >
             <CommandEmpty>No model found.</CommandEmpty>
             <CommandGroup>

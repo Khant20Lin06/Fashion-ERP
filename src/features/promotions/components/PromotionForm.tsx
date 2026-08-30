@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { buildNativeScrollbarClassName } from "@/components/ui/native-scrollbar.classes"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -117,7 +118,7 @@ export function PromotionFormDialog({ open, onOpenChange, promotion }: Promotion
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent className={buildNativeScrollbarClassName("max-h-[90vh]")}>
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit Promotion" : "New Promotion"}</DialogTitle>
         </DialogHeader>

@@ -32,8 +32,8 @@ export function ProductCostAnalysisTable({ data }: ProductCostAnalysisTableProps
         </TableRow>
       </TableHeader>
       <TableBody>
-        {data.map((point) => (
-          <TableRow key={point.productName}>
+        {data.map((point, index) => (
+          <TableRow key={`${point.productName}-${point.supplierName}-${point.currentCost}-${index}`}>
             <TableCell className="font-medium">{point.productName}</TableCell>
             <TableCell>{formatCurrency(point.previousCost)}</TableCell>
             <TableCell>{formatCurrency(point.currentCost)}</TableCell>

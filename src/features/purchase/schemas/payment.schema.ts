@@ -2,7 +2,7 @@ import { z } from "zod"
 
 export const paymentFormSchema = z.object({
   supplierId: z.string().min(1, "Supplier is required"),
-  purchaseOrderId: z.string().min(1, "Purchase order is required"),
+  purchaseInvoiceId: z.string().min(1, "Purchase invoice is required"),
   paymentMethodId: z.string().min(1, "Payment method is required"),
   paymentDate: z.string().min(1, "Payment date is required"),
   amount: z.number().positive("Amount must be greater than zero"),
@@ -14,18 +14,22 @@ export type PaymentFormValues = z.infer<typeof paymentFormSchema>
 
 export const purchaseReturnFormSchema = z.object({
   supplierId: z.string().min(1, "Supplier is required"),
-  purchaseOrderId: z.string().optional(),
+  purchaseInvoiceId: z.string().min(1, "Purchase invoice is required"),
   reason: z.enum(["damaged_product", "wrong_item", "quality_issue", "supplier_return"]),
   items: z
     .array(
       z.object({
+        purchaseOrderItemId: z.string().min(1, "Purchase order item is required"),
         productId: z.string().min(1, "Product is required"),
         productName: z.string(),
         sku: z.string(),
         color: z.string().optional(),
         size: z.string().optional(),
-        quantity: z.number().positive("Quantity must be greater than zero"),
+        receivedQty: z.number().min(0).optional(),
+        returnedQty: z.number().min(0).optional(),
+        quantity: z.number().min(0, "Quantity cannot be negative"),
         unitCost: z.number().min(0),
+        maxQuantity: z.number().positive().optional(),
       })
     )
     .min(1, "Add at least one product"),

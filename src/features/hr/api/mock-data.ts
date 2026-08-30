@@ -4,6 +4,8 @@ import type {
   AttendanceMetrics,
   AttendanceOverviewPoint,
   AttendanceRecord,
+  Branch,
+  Designation,
   Department,
   DepartmentCostPoint,
   DepartmentDistributionPoint,
@@ -37,6 +39,23 @@ export const mockDepartments: Department[] = [
   { id: "dept-sales", name: "Sales Department", code: "SLS", employeeCount: 18, status: "active" },
   { id: "dept-warehouse", name: "Warehouse Department", code: "WHS", employeeCount: 12, status: "active" },
   { id: "dept-marketing", name: "Marketing Department", code: "MKT", employeeCount: 5, status: "active" },
+]
+
+export const mockBranches: Branch[] = [
+  { id: "org-head-office", code: "HO", name: "Head Office", status: "active" },
+  { id: "org-store-a", code: "STA", name: "Store A - Yangon", status: "active" },
+  { id: "org-store-b", code: "STB", name: "Store B - Mandalay", status: "active" },
+  { id: "org-warehouse", code: "WH", name: "Central Warehouse", status: "active" },
+]
+
+export const mockDesignations: Designation[] = [
+  { id: "desig-sales-manager", code: "SM", name: "Sales Manager", status: "active" },
+  { id: "desig-sales-associate", code: "SA", name: "Sales Associate", status: "active" },
+  { id: "desig-hr-manager", code: "HRM", name: "HR Manager", status: "active" },
+  { id: "desig-finance-manager", code: "FM", name: "Finance Manager", status: "active" },
+  { id: "desig-warehouse-supervisor", code: "WS", name: "Warehouse Supervisor", status: "active" },
+  { id: "desig-marketing-executive", code: "ME", name: "Marketing Executive", status: "active" },
+  { id: "desig-warehouse-staff", code: "WST", name: "Warehouse Staff", status: "active" },
 ]
 
 // --- Organization Tree ---
@@ -76,6 +95,7 @@ export const mockEmployees: Employee[] = [
     address: "12 Bogyoke Rd, Yangon",
     departmentId: "dept-sales",
     departmentName: "Sales Department",
+    designationId: "desig-sales-manager",
     designation: "Sales Manager",
     branchId: "org-store-a",
     branchName: "Store A — Yangon",
@@ -99,6 +119,7 @@ export const mockEmployees: Employee[] = [
     address: "45 Pyay Road, Yangon",
     departmentId: "dept-sales",
     departmentName: "Sales Department",
+    designationId: "desig-sales-associate",
     designation: "Sales Associate",
     branchId: "org-store-a",
     branchName: "Store A — Yangon",
@@ -124,6 +145,7 @@ export const mockEmployees: Employee[] = [
     address: "8 Kaba Aye Pagoda Rd, Yangon",
     departmentId: "dept-hr",
     departmentName: "HR Department",
+    designationId: "desig-hr-manager",
     designation: "HR Manager",
     branchId: "org-head-office",
     branchName: "Head Office",
@@ -146,6 +168,7 @@ export const mockEmployees: Employee[] = [
     address: "3 Kabar Aye Rd, Yangon",
     departmentId: "dept-finance",
     departmentName: "Finance Department",
+    designationId: "desig-finance-manager",
     designation: "Finance Manager",
     branchId: "org-head-office",
     branchName: "Head Office",
@@ -168,6 +191,7 @@ export const mockEmployees: Employee[] = [
     address: "26th Street, Mandalay",
     departmentId: "dept-warehouse",
     departmentName: "Warehouse Department",
+    designationId: "desig-warehouse-supervisor",
     designation: "Warehouse Supervisor",
     branchId: "org-warehouse",
     branchName: "Central Warehouse",
@@ -190,6 +214,7 @@ export const mockEmployees: Employee[] = [
     address: "Sukhumvit Rd, Bangkok",
     departmentId: "dept-marketing",
     departmentName: "Marketing Department",
+    designationId: "desig-marketing-executive",
     designation: "Marketing Executive",
     branchId: "org-store-b",
     branchName: "Store B — Mandalay",
@@ -212,6 +237,7 @@ export const mockEmployees: Employee[] = [
     address: "Nimman Rd, Chiang Mai",
     departmentId: "dept-warehouse",
     departmentName: "Warehouse Department",
+    designationId: "desig-warehouse-staff",
     designation: "Warehouse Staff",
     branchId: "org-warehouse",
     branchName: "Central Warehouse",
@@ -223,7 +249,7 @@ export const mockEmployees: Employee[] = [
     shiftName: "Night Shift",
     workingHoursPerWeek: 30,
     location: "Chiang Mai",
-    status: "on_leave",
+    status: "inactive",
   },
 ]
 

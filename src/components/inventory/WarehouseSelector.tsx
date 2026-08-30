@@ -8,10 +8,19 @@ type WarehouseSelectorProps = {
   onChange: (warehouseId: string) => void
   placeholder?: string
   disabled?: string[]
+  allowed?: string[]
+  branchId?: string
 }
 
 /** Dropdown for selecting a warehouse — reused across Transfer/Adjustment/Count forms and filters. */
-export function WarehouseSelector({ value, onChange, placeholder = "Select warehouse", disabled }: WarehouseSelectorProps) {
+export function WarehouseSelector({
+  value,
+  onChange,
+  placeholder = "Select warehouse",
+  disabled,
+  allowed,
+  branchId,
+}: WarehouseSelectorProps) {
   const { data: warehouses } = useWarehouses()
 
   return (
@@ -21,6 +30,8 @@ export function WarehouseSelector({ value, onChange, placeholder = "Select wareh
       </SelectTrigger>
       <SelectContent>
         {(warehouses ?? [])
+          .filter((w) => !branchId || w.branchId === branchId)
+          .filter((w) => !allowed || allowed.includes(w.id))
           .filter((w) => !disabled?.includes(w.id))
           .map((warehouse) => (
             <SelectItem key={warehouse.id} value={warehouse.id}>

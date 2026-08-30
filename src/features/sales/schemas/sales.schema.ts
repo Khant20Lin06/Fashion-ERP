@@ -4,6 +4,8 @@ export const salesOrderItemSchema = z.object({
   productId: z.string().min(1, "Product is required"),
   productName: z.string(),
   sku: z.string(),
+  uomId: z.string().optional(),
+  uomLabel: z.string().optional(),
   color: z.string().optional(),
   size: z.string().optional(),
   quantity: z.number().positive("Quantity must be greater than zero"),
@@ -14,6 +16,7 @@ export const salesOrderItemSchema = z.object({
 
 export const salesOrderFormSchema = z.object({
   customerId: z.string().min(1, "Customer is required"),
+  priceListId: z.string().optional(),
   items: z.array(salesOrderItemSchema).min(1, "At least one product is required"),
   deliveryDate: z.string().min(1, "Delivery date is required"),
   paymentTerms: z.string().min(1, "Payment terms are required"),

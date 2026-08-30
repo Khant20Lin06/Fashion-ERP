@@ -1,13 +1,15 @@
 "use client"
 
+import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { useForm } from "react-hook-form"
+import { type UseFormSetError, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toApiError } from "@/lib/api/errors"
 import {
   Form,
   FormControl,
@@ -17,66 +19,87 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { employeeFormSchema, type EmployeeFormValues } from "../schemas/employee.schema"
-import { useCreateEmployee, useUpdateEmployee, useEmployees } from "../hooks/useEmployees"
-import { useDepartments } from "../hooks/useOrganization"
-import { useShifts } from "../hooks/useAttendance"
+import { useCreateEmployee, useUpdateEmployee } from "../hooks/useEmployees"
+import { useBranches, useDepartments, useDesignations } from "../hooks/useOrganization"
 import type { Employee } from "../types"
 
 type EmployeeFormProps = {
   employee?: Employee
 }
 
-const employmentTypeOptions = [
-  { value: "full_time", label: "Full Time" },
-  { value: "part_time", label: "Part Time" },
-  { value: "contract", label: "Contract" },
-  { value: "intern", label: "Intern" },
-] as const
+const NO_DESIGNATION_VALUE = "__none__"
 
-const statusOptions = [
-  { value: "active", label: "Active" },
-  { value: "on_leave", label: "On Leave" },
-  { value: "suspended", label: "Suspended" },
-  { value: "terminated", label: "Terminated" },
-] as const
+function applyEmployeeMutationErrors(
+  error: unknown,
+  setError: UseFormSetError<EmployeeFormValues>,
+): string | null {
+  const apiError = toApiError(error)
+  const message = apiError.message.toLowerCase()
 
-/** Multi-section employee create/edit form: Personal Information, Employment Information, Work Information. */
+  if (message.includes("employee code already exists")) {
+    setError("employeeCode", { type: "server", message: "This employee ID is already in use." })
+    return null
+  }
+
+  if (message.includes("branchid")) {
+    setError("branchId", { type: "server", message: "Please choose a valid branch." })
+    return null
+  }
+
+  if (message.includes("departmentid")) {
+    setError("departmentId", { type: "server", message: "Please choose a valid department." })
+    return null
+  }
+
+  if (message.includes("designationid")) {
+    setError("designationId", { type: "server", message: "Please choose a valid designation." })
+    return null
+  }
+
+  if (message.includes("assignment dates overlap")) {
+    setError("joiningDate", { type: "server", message: "Joining date overlaps an existing assignment." })
+    return null
+  }
+
+  return apiError.message
+}
+
 export function EmployeeForm({ employee }: EmployeeFormProps) {
   const router = useRouter()
   const isEditing = !!employee
   const { data: departments } = useDepartments()
-  const { data: shifts } = useShifts()
-  const { data: employees } = useEmployees()
+  const { data: designations } = useDesignations()
+  const { data: branches } = useBranches()
   const createEmployee = useCreateEmployee()
   const updateEmployee = useUpdateEmployee(employee?.id ?? "")
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const form = useForm<EmployeeFormValues>({
     resolver: zodResolver(employeeFormSchema),
     defaultValues: {
       name: employee?.name ?? "",
-      photoUrl: employee?.photoUrl ?? "",
-      gender: employee?.gender ?? "male",
       dateOfBirth: employee?.dateOfBirth ?? "",
       phone: employee?.phone ?? "",
       email: employee?.email ?? "",
       address: employee?.address ?? "",
       employeeCode: employee?.employeeCode ?? "",
       departmentId: employee?.departmentId ?? "",
-      designation: employee?.designation ?? "",
+      designationId: employee?.designationId ?? "",
       branchId: employee?.branchId ?? "",
-      employmentType: employee?.employmentType ?? "full_time",
-      joiningDate: employee?.joiningDate ?? new Date().toISOString().slice(0, 10),
-      managerId: employee?.managerId ?? "",
-      shiftId: employee?.shiftId ?? "",
-      workingHoursPerWeek: employee?.workingHoursPerWeek ?? 40,
-      location: employee?.location ?? "",
-      status: employee?.status ?? "active",
+      joiningDate: employee?.joiningDate ? employee.joiningDate.slice(0, 10) : new Date().toISOString().slice(0, 10),
     },
   })
 
-  function onSubmit(values: EmployeeFormValues) {
+  async function onSubmit(values: EmployeeFormValues) {
+    form.clearErrors()
+    setSubmitError(null)
     const mutation = isEditing ? updateEmployee : createEmployee
-    mutation.mutate(values, { onSuccess: () => router.push("/dashboard/hr/employees") })
+    try {
+      await mutation.mutateAsync(values)
+      router.push("/dashboard/hr/employees")
+    } catch (error) {
+      setSubmitError(applyEmployeeMutationErrors(error, form.setError))
+    }
   }
 
   const isPending = createEmployee.isPending || updateEmployee.isPending
@@ -98,28 +121,6 @@ export function EmployeeForm({ employee }: EmployeeFormProps) {
                   <FormControl>
                     <Input placeholder="Full name" {...field} />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="gender"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Gender</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="male">Male</SelectItem>
-                      <SelectItem value="female">Female</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
@@ -199,80 +200,6 @@ export function EmployeeForm({ employee }: EmployeeFormProps) {
             />
             <FormField
               control={form.control}
-              name="departmentId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Department</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select department" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {(departments ?? []).map((d) => (
-                        <SelectItem key={d.id} value={d.id}>
-                          {d.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="designation"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Designation</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g. Sales Associate" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="branchId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Branch</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Branch ID or name" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="employmentType"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Employment Type</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {employmentTypeOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="joiningDate"
               render={({ field }) => (
                 <FormItem>
@@ -286,110 +213,20 @@ export function EmployeeForm({ employee }: EmployeeFormProps) {
             />
             <FormField
               control={form.control}
-              name="managerId"
+              name="departmentId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Manager</FormLabel>
-                  <Select value={field.value ?? ""} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select manager" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {(employees ?? [])
-                        .filter((e) => e.id !== employee?.id)
-                        .map((e) => (
-                          <SelectItem key={e.id} value={e.id}>
-                            {e.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Work Information</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="shiftId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Shift</FormLabel>
-                  <Select value={field.value ?? ""} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select shift" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {(shifts ?? []).map((shift) => (
-                        <SelectItem key={shift.id} value={shift.id}>
-                          {shift.name} ({shift.startTime} - {shift.endTime})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="workingHoursPerWeek"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Working Hours (per week)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={168}
-                      value={field.value}
-                      onChange={(e) => field.onChange(Number(e.target.value) || 0)}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="location"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Location</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g. Yangon" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Status</FormLabel>
+                  <FormLabel>Department</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
                       <SelectTrigger className="w-full">
-                        <SelectValue />
+                        <SelectValue placeholder="Select department" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {statusOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
+                      {(departments ?? []).map((department) => (
+                        <SelectItem key={department.id} value={department.id}>
+                          {department.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -398,17 +235,80 @@ export function EmployeeForm({ employee }: EmployeeFormProps) {
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="designationId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Designation</FormLabel>
+                  <Select
+                    value={field.value || NO_DESIGNATION_VALUE}
+                    onValueChange={(value) => field.onChange(value === NO_DESIGNATION_VALUE ? "" : value)}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select designation (optional)" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value={NO_DESIGNATION_VALUE}>No designation yet</SelectItem>
+                      {(designations ?? []).map((designation) => (
+                        <SelectItem key={designation.id} value={designation.id}>
+                          {designation.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="branchId"
+              render={({ field }) => (
+                <FormItem className="sm:col-span-2">
+                  <FormLabel>Branch</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange} disabled={isEditing}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select branch" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {(branches ?? []).map((branch) => (
+                        <SelectItem key={branch.id} value={branch.id}>
+                          {branch.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {isEditing ? (
+                    <p className="text-xs text-muted-foreground">
+                      Branch transfer is handled in a separate workflow.
+                    </p>
+                  ) : null}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </CardContent>
         </Card>
 
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => router.push("/dashboard/hr/employees")}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={isPending}>
-            {isPending ? <Loader2 className="animate-spin" /> : null}
-            {isEditing ? "Save Changes" : "Create Employee"}
-          </Button>
+        <div className="flex flex-col gap-3">
+          {submitError ? (
+            <p className="text-sm text-destructive">{submitError}</p>
+          ) : null}
+
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => router.push("/dashboard/hr/employees")}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isPending}>
+              {isPending ? <Loader2 className="animate-spin" /> : null}
+              {isEditing ? "Save Changes" : "Create Employee"}
+            </Button>
+          </div>
         </div>
       </form>
     </Form>

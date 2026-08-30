@@ -9,10 +9,11 @@ import type { ProductPricing } from "../types"
 type PricingPanelProps = {
   value: ProductPricing
   onChange: (value: ProductPricing) => void
+  baseUomLabel?: string
 }
 
 /** Pricing section of the product form — cost/selling/discount/wholesale + tax, with live margin. */
-export function PricingPanel({ value, onChange }: PricingPanelProps) {
+export function PricingPanel({ value, onChange, baseUomLabel }: PricingPanelProps) {
   function set<K extends keyof ProductPricing>(key: K, raw: string) {
     const parsed = raw === "" ? 0 : Number(raw)
     onChange({ ...value, [key]: Number.isNaN(parsed) ? 0 : parsed })
@@ -24,6 +25,11 @@ export function PricingPanel({ value, onChange }: PricingPanelProps) {
         <CardTitle className="text-base">Pricing</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
+        <p className="text-sm text-muted-foreground">
+          Base cost and selling prices are stored in {baseUomLabel ?? "the product base UOM"}. Configure pack or
+          carton selling prices from price lists after the variant UOM mappings are saved.
+        </p>
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-1.5">
             <Label htmlFor="cost-price">Cost Price</Label>

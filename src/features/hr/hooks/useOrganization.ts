@@ -3,6 +3,9 @@ import { toast } from "sonner"
 import { toastApiError } from "@/lib/api/errors"
 import {
   createDepartment,
+  deleteDepartment,
+  fetchBranches,
+  fetchDesignations,
   fetchAnnouncements,
   fetchDepartmentDistribution,
   fetchDepartments,
@@ -17,6 +20,14 @@ import {
 
 export function useDepartments() {
   return useQuery({ queryKey: ["hr", "departments"], queryFn: fetchDepartments })
+}
+
+export function useBranches() {
+  return useQuery({ queryKey: ["hr", "branches"], queryFn: fetchBranches })
+}
+
+export function useDesignations() {
+  return useQuery({ queryKey: ["hr", "designations"], queryFn: fetchDesignations })
 }
 
 export function useCreateDepartment() {
@@ -40,6 +51,19 @@ export function useUpdateDepartment(id: string) {
       toast.success("Department updated")
     },
     onError: (error) => toastApiError(error, "Failed to update department"),
+  })
+}
+
+export function useDeleteDepartment() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteDepartment(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["hr", "departments"] })
+      queryClient.invalidateQueries({ queryKey: ["hr", "analytics", "department-distribution"] })
+      toast.success("Department deleted")
+    },
+    onError: (error) => toastApiError(error, "Failed to delete department"),
   })
 }
 

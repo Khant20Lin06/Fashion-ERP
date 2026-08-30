@@ -7,13 +7,17 @@ import { ErrorState } from "@/components/ui/error-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import { LeaveStatusBadge } from "@/components/hr/LeaveStatusBadge"
 import { formatRelativeTime } from "@/lib/format"
+import { useAuthStore } from "@/stores/auth.store"
+import { useEmployees } from "../hooks/useEmployees"
 import { useLeaveRequests, useUpdateLeaveRequestStatus } from "../hooks/useLeave"
+import { isOwnLeaveRequest } from "../lib/current-user-employee"
 
 /** Leave Request list. Real backend lifecycle is Pending -> Approved /
- * Rejected / Cancelled — a single approval step, no manager-then-HR
- * distinction (LeaveRequestStatus enum, LOCKED). */
+ * Rejected / Cancelled, with a single approval step. */
 export function LeaveList() {
+  const user = useAuthStore((state) => state.user)
   const { data, isLoading, isError, refetch } = useLeaveRequests()
+  const { data: employees } = useEmployees()
   const { mutate: updateStatus, isPending } = useUpdateLeaveRequestStatus()
 
   if (isLoading) {
@@ -34,41 +38,48 @@ export function LeaveList() {
 
   return (
     <div className="flex flex-col gap-3">
-      {data.map((leave) => (
-        <Card key={leave.id}>
-          <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <p className="font-mono text-sm font-medium">{leave.reference}</p>
-                <LeaveStatusBadge status={leave.status} />
+      {data.map((leave) => {
+        const ownRequest = isOwnLeaveRequest(user, leave.employeeId, employees)
+
+        return (
+          <Card key={leave.id}>
+            <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <p className="font-mono text-sm font-medium">{leave.reference}</p>
+                  <LeaveStatusBadge status={leave.status} />
+                </div>
+                <p className="text-sm">
+                  {leave.employeeName || "Unknown employee"} - {leave.typeLabel ?? leave.type}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()} ({leave.days}d) -{" "}
+                  {formatRelativeTime(leave.createdAt)}
+                </p>
+                <p className="text-xs text-muted-foreground">{leave.reason}</p>
+                {leave.status === "requested" && ownRequest ? (
+                  <p className="text-xs text-muted-foreground">You cannot approve or reject your own leave request.</p>
+                ) : null}
               </div>
-              <p className="text-sm">
-                {leave.employeeName} · <span className="capitalize">{leave.type}</span> Leave
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()} ({leave.days}d) ·{" "}
-                {formatRelativeTime(leave.createdAt)}
-              </p>
-              <p className="text-xs text-muted-foreground">{leave.reason}</p>
-            </div>
-            {leave.status === "requested" && (
-              <div className="flex gap-2">
-                <Button size="sm" onClick={() => updateStatus({ id: leave.id, status: "approved" })} disabled={isPending}>
-                  Approve
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => updateStatus({ id: leave.id, status: "rejected" })}
-                  disabled={isPending}
-                >
-                  Reject
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      ))}
+              {leave.status === "requested" && !ownRequest && (
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => updateStatus({ id: leave.id, status: "approved" })} disabled={isPending}>
+                    Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => updateStatus({ id: leave.id, status: "rejected" })}
+                    disabled={isPending}
+                  >
+                    Reject
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )
+      })}
     </div>
   )
 }

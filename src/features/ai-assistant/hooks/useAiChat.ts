@@ -3,6 +3,7 @@ import { toast } from "sonner"
 import { toastApiError } from "@/lib/api/errors"
 import {
   deleteConversation,
+  fetchAiModels,
   fetchConversationMessages,
   fetchConversations,
   sendChatMessage,
@@ -11,6 +12,16 @@ import {
 
 export function useConversations() {
   return useQuery({ queryKey: ["ai-assistant", "conversations"], queryFn: fetchConversations })
+}
+
+/** Static once the AI provider is configured — cached indefinitely for
+ * the session rather than refetched on every panel open. */
+export function useAiModels() {
+  return useQuery({
+    queryKey: ["ai-assistant", "models"],
+    queryFn: fetchAiModels,
+    staleTime: Infinity,
+  })
 }
 
 export function useConversationMessages(conversationId: string | undefined) {

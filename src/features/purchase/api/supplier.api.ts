@@ -13,7 +13,7 @@ function delay<T>(value: T, ms = 200): Promise<T> {
 
 // The real CreateSupplierDto/UpdateSupplierDto/SupplierResponseDto
 // (src/modules/customer-supplier/dto/*.ts) have no `type`, `website`,
-// `address`, `country`, `taxId`, `currency`, or `bankAccount` fields, model
+// `address`, `taxId`, `currency`, or `bankAccount` fields, model
 // payment terms as a `paymentTermId` UUID FK rather than free text, and
 // have no `contactPerson` field at all. Redesigning SupplierForm's UI is
 // beyond a contract-audit's "smallest safe change" scope, so this layer
@@ -32,6 +32,7 @@ type BackendSupplier = {
   displayName: string | null
   phone: string | null
   email: string | null
+  country: string | null
   supplierGroupId: string | null
   paymentTermId: string | null
   creditDays: number
@@ -43,22 +44,20 @@ type BackendSupplier = {
   updatedAt: string
 }
 
-type BackendPaymentAllocation = {
-  referenceType: string
-  referenceId: string
-  allocatedAmount: string
-}
-
-type BackendAnalyticsPayment = {
-  id: string
-  allocations?: BackendPaymentAllocation[]
-}
-
 type BackendPaymentTerm = {
   id: string
   code?: string
   name: string
   dueDays?: number
+}
+
+type PaginatedResponse<T> = {
+  data?: T[]
+  meta?: {
+    page?: number
+    limit?: number
+    total?: number
+  } | null
 }
 
 function formatPaymentTermLabel(name: string, dueDays: number): string {
@@ -90,6 +89,7 @@ function mapBackendToSupplier(bs: BackendSupplier, paymentTermsById: Map<string,
     contactPerson: bs.displayName ?? "",
     phone: bs.phone ?? "",
     email: bs.email ?? "",
+    country: bs.country ?? "",
     creditDays: bs.creditDays,
     openingBalance: parseFloat(bs.openingBalanceAmount) || 0,
     notes: bs.notes ?? "",
@@ -135,6 +135,28 @@ async function fetchPaymentTermsById(companyId: string): Promise<Map<string, str
   }
 }
 
+async function fetchAllSuppliersForCompany(companyId: string): Promise<BackendSupplier[]> {
+  const limit = 100
+  let page = 1
+  let total = Number.POSITIVE_INFINITY
+  const rows: BackendSupplier[] = []
+
+  while (rows.length < total) {
+    const { data } = await apiClient.get<PaginatedResponse<BackendSupplier>>("/suppliers", {
+      params: { companyId, page, limit },
+    })
+    const batch = data.data ?? []
+    rows.push(...batch)
+
+    const reportedTotal = data.meta?.total
+    total = typeof reportedTotal === "number" ? reportedTotal : batch.length < limit ? rows.length : rows.length + limit
+    if (batch.length < limit) break
+    page += 1
+  }
+
+  return rows
+}
+
 export async function fetchSupplierPaymentTerms(): Promise<PaymentTermOption[]> {
   if (USE_MOCK) {
     return delay([
@@ -168,10 +190,8 @@ async function resolveCreateSupplierCode(
   if (normalizedRequestedCode) return normalizedRequestedCode
 
   try {
-    const { data } = await apiClient.get<{ data: BackendSupplier[]; meta: unknown }>("/suppliers", {
-      params: { companyId, limit: 1000 },
-    })
-    const existingCodes = new Set((data.data ?? []).map((supplier) => supplier.supplierCode))
+    const existingSuppliers = await fetchAllSuppliersForCompany(companyId)
+    const existingCodes = new Set(existingSuppliers.map((supplier) => supplier.supplierCode))
     const baseCode = buildSupplierBaseCode(name)
     let candidate = baseCode
     let suffix = 2
@@ -191,35 +211,24 @@ async function applySupplierMetrics(suppliers: Supplier[]): Promise<Supplier[]> 
   if (USE_MOCK || suppliers.length === 0) return suppliers
 
   try {
-    const companyId = await resolveCompanyId()
-    const [{ fetchPurchaseOrders }, paymentResponse] = await Promise.all([
+    const [{ fetchPurchaseOrders }, { fetchInvoices }] = await Promise.all([
       import("./purchase-order.api"),
-      apiClient
-        .get<{ data: BackendAnalyticsPayment[]; meta: unknown }>("/payments", {
-          params: { companyId, direction: "PAYMENT", limit: 100 },
-        })
-        .catch(() => ({ data: { data: [], meta: null } })),
+      import("./payment.api"),
     ])
-    const purchaseOrders = await fetchPurchaseOrders()
+    const [purchaseOrders, invoices] = await Promise.all([fetchPurchaseOrders(), fetchInvoices()])
     const activeOrders = purchaseOrders.filter((order) => !["draft", "cancelled"].includes(order.status))
-    const paidByPurchaseOrder = new Map<string, number>()
-
-    for (const payment of paymentResponse.data.data ?? []) {
-      for (const allocation of payment.allocations ?? []) {
-        if (allocation.referenceType !== "PURCHASE_ORDER") continue
-        paidByPurchaseOrder.set(
-          allocation.referenceId,
-          (paidByPurchaseOrder.get(allocation.referenceId) ?? 0) + (parseFloat(allocation.allocatedAmount) || 0),
-        )
-      }
-    }
 
     const totalsBySupplier = new Map<string, { totalPurchase: number; outstanding: number }>()
     for (const order of activeOrders) {
       const metrics = totalsBySupplier.get(order.supplierId) ?? { totalPurchase: 0, outstanding: 0 }
       metrics.totalPurchase += order.grandTotal
-      metrics.outstanding += Math.max(order.grandTotal - (paidByPurchaseOrder.get(order.id) ?? 0), 0)
       totalsBySupplier.set(order.supplierId, metrics)
+    }
+
+    for (const invoice of invoices) {
+      const metrics = totalsBySupplier.get(invoice.supplierId) ?? { totalPurchase: 0, outstanding: 0 }
+      metrics.outstanding += invoice.balanceAmount
+      totalsBySupplier.set(invoice.supplierId, metrics)
     }
 
     return suppliers.map((supplier) => {
@@ -243,6 +252,7 @@ function mapSupplierFormToCreatePayload(values: SupplierFormValues) {
     displayName: values.contactPerson || undefined,
     phone: values.phone || undefined,
     email: values.email || undefined,
+    country: values.country || undefined,
     paymentTermId: values.paymentTermId || undefined,
     creditDays: values.creditDays,
     openingBalanceAmount: values.openingBalanceAmount,
@@ -258,6 +268,7 @@ function mapSupplierFormToUpdatePayload(values: SupplierFormValues) {
     displayName: values.contactPerson || undefined,
     phone: values.phone || undefined,
     email: values.email || undefined,
+    country: values.country || undefined,
     paymentTermId: values.paymentTermId || undefined,
     creditDays: values.creditDays,
     openingBalanceAmount: values.openingBalanceAmount,
@@ -286,13 +297,11 @@ export async function fetchSuppliers(): Promise<Supplier[]> {
   // never a bare array — see src/modules/customer-supplier/controllers on
   // the backend. Unwrapping `data` directly here previously handed the
   // envelope object to callers expecting `Supplier[]`, breaking `.map()`.
-  const [{ data }, paymentTermsById] = await Promise.all([
-    apiClient.get<{ data: BackendSupplier[]; meta: unknown }>("/suppliers", {
-      params: { companyId },
-    }),
+  const [suppliers, paymentTermsById] = await Promise.all([
+    fetchAllSuppliersForCompany(companyId),
     fetchPaymentTermsById(companyId),
   ])
-  return applySupplierMetrics((data.data ?? []).map((supplier) => mapBackendToSupplier(supplier, paymentTermsById)))
+  return applySupplierMetrics(suppliers.map((supplier) => mapBackendToSupplier(supplier, paymentTermsById)))
 }
 
 export async function fetchSupplierById(id: string): Promise<Supplier | null> {
@@ -332,6 +341,7 @@ export async function createSupplier(values: SupplierFormValues): Promise<Suppli
       contactPerson: values.contactPerson,
       phone: values.phone,
       email: values.email,
+      country: values.country,
       creditDays: values.creditDays,
       openingBalance: Number(values.openingBalanceAmount) || 0,
       notes: values.notes,
@@ -367,6 +377,7 @@ export async function updateSupplier(id: string, values: SupplierFormValues): Pr
       contactPerson: values.contactPerson,
       phone: values.phone,
       email: values.email,
+      country: values.country,
       creditDays: values.creditDays,
       openingBalance: Number(values.openingBalanceAmount) || 0,
       notes: values.notes,

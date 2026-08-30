@@ -1,8 +1,8 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { FinanceCard, FinanceCardSkeleton } from "@/components/accounting/FinanceCard"
-import { FeatureUnavailable } from "@/components/feature-gate/FeatureUnavailable"
+import { EmptyState } from "@/components/ui/empty-state"
 import { DollarSign, TrendingDown, TrendingUp, Wallet } from "lucide-react"
 import { IncomeExpenseChart } from "@/features/accounting/components/IncomeExpenseChart"
 import { ReceivablePayableCard } from "@/features/accounting/components/ReceivablePayableCard"
@@ -21,42 +21,55 @@ export default function FinanceDashboardPage() {
         <p className="text-sm text-muted-foreground">Revenue, expenses, profit, and cash position.</p>
       </div>
 
-      {kpisError ? (
-        <FeatureUnavailable
-          title="Finance KPIs not available"
-          description="No backend accounting KPI-aggregate endpoint exists yet."
-        />
-      ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {loadingKpis || !kpis ? (
-            Array.from({ length: 4 }).map((_, i) => <FinanceCardSkeleton key={i} />)
-          ) : (
-            <>
-              <FinanceCard label="Total Revenue" value={formatCurrency(kpis.totalRevenue)} helper="This Year" icon={DollarSign} />
-              <FinanceCard label="Total Expenses" value={formatCurrency(kpis.totalExpenses)} icon={TrendingDown} tone="warning" />
-              <FinanceCard
-                label="Net Profit"
-                value={formatCurrency(kpis.netProfit)}
-                helper={`${formatPercent(kpis.netMarginPercent)} Margin`}
-                icon={TrendingUp}
-                tone="success"
-              />
-              <FinanceCard label="Cash Balance" value={formatCurrency(kpis.cashBalance)} icon={Wallet} />
-            </>
-          )}
-        </div>
-      )}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {kpisError ? (
+          <Card className="lg:col-span-4">
+            <CardHeader>
+              <CardTitle className="text-base">Finance KPI Summary</CardTitle>
+              <CardDescription>
+                No backend accounting KPI aggregate endpoint exists yet, so this dashboard currently shows live receivables, payables, and payment activity below.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        ) : loadingKpis || !kpis ? (
+          Array.from({ length: 4 }).map((_, i) => <FinanceCardSkeleton key={i} />)
+        ) : (
+          <>
+            <FinanceCard label="Total Revenue" value={formatCurrency(kpis.totalRevenue)} helper="This Year" icon={DollarSign} />
+            <FinanceCard label="Total Expenses" value={formatCurrency(kpis.totalExpenses)} icon={TrendingDown} tone="warning" />
+            <FinanceCard
+              label="Net Profit"
+              value={formatCurrency(kpis.netProfit)}
+              helper={`${formatPercent(kpis.netMarginPercent)} Margin`}
+              icon={TrendingUp}
+              tone="success"
+            />
+            <FinanceCard label="Cash Balance" value={formatCurrency(kpis.cashBalance)} icon={Wallet} />
+          </>
+        )}
+      </div>
 
-      {!trendError && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Income vs Expense</CardTitle>
-          </CardHeader>
-          <CardContent>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Income vs Expense</CardTitle>
+          {trendError && (
+            <CardDescription>
+              Time-series income and expense analytics are not available from the backend yet.
+            </CardDescription>
+          )}
+        </CardHeader>
+        <CardContent>
+          {trendError ? (
+            <EmptyState
+              title="Analytics not available yet"
+              description="Live accounting transactions are available below, but the backend still has no income-vs-expense trend endpoint."
+              className="border-none px-0 py-10"
+            />
+          ) : (
             <IncomeExpenseChart data={trend ?? []} />
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       <ReceivablePayableCard />
 

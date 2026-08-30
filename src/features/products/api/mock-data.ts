@@ -5,7 +5,15 @@ import type {
   Collection,
   Product,
   ProductListItem,
+  Uom,
 } from "../types"
+
+export const mockUoms: Uom[] = [
+  { id: "uom-pcs", code: "PCS", name: "Pieces", symbol: "pcs", category: "COUNT", decimalPlaces: 0, isActive: true },
+  { id: "uom-box", code: "BOX", name: "Box", symbol: "box", category: "COUNT", decimalPlaces: 0, isActive: true },
+  { id: "uom-carton", code: "CTN", name: "Carton", symbol: "ctn", category: "COUNT", decimalPlaces: 0, isActive: true },
+  { id: "uom-kg", code: "KG", name: "Kilogram", symbol: "kg", category: "WEIGHT", decimalPlaces: 3, isActive: true },
+]
 
 export const mockCategories: Category[] = [
   { id: "cat-fashion", code: "FASHION", name: "Fashion", parentId: null, isActive: true, productCount: 5 },
@@ -76,10 +84,12 @@ export const mockProducts: Product[] = [
     ],
     variants: [
       { id: "var-1", productId: "prod-1", sku: "NIKE-TS-BLK-M-001", barcode: "890001000001", attributes: { color: "Black", size: "M" }, costPrice: 20, sellingPrice: 35, stockQuantity: 120, status: "active" },
-      { id: "var-2", productId: "prod-1", sku: "NIKE-TS-BLK-L-001", barcode: "890001000002", attributes: { color: "Black", size: "L" }, costPrice: 20, sellingPrice: 35, stockQuantity: 80, status: "active" },
-      { id: "var-3", productId: "prod-1", sku: "NIKE-TS-WHT-M-001", barcode: "890001000003", attributes: { color: "White", size: "M" }, costPrice: 20, sellingPrice: 35, stockQuantity: 45, status: "active" },
+      { id: "var-2", productId: "prod-1", sku: "NIKE-TS-BLK-L-001", barcode: "890001000002", attributes: { color: "Black", size: "L" }, costPrice: 20, sellingPrice: 35, stockQuantity: 80, baseUomId: "uom-pcs", status: "active" },
+      { id: "var-3", productId: "prod-1", sku: "NIKE-TS-WHT-M-001", barcode: "890001000003", attributes: { color: "White", size: "M" }, costPrice: 20, sellingPrice: 35, stockQuantity: 45, baseUomId: "uom-pcs", status: "active" },
     ],
-    pricing: { costPrice: 20, sellingPrice: 35, discountPrice: 30, taxRate: 8 },
+    pricing: { baseUomId: "uom-pcs", costPrice: 20, sellingPrice: 35, discountPrice: 30, taxRate: 8 },
+    baseUomId: "uom-pcs",
+    baseUom: mockUoms[0],
     stockQuantity: 245,
     warehouseStock: [
       { warehouseId: "wh-central", warehouseName: "Central Warehouse", available: 120, reserved: 10, incoming: 50 },
@@ -111,10 +121,12 @@ export const mockProducts: Product[] = [
       { id: "img-3", url: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400", isPrimary: true, sortOrder: 0 },
     ],
     variants: [
-      { id: "var-4", productId: "prod-2", sku: "ZARA-FD-RED-S-014", barcode: "890002000001", attributes: { color: "Red", size: "S" }, costPrice: 30, sellingPrice: 68, stockQuantity: 25, status: "active" },
-      { id: "var-5", productId: "prod-2", sku: "ZARA-FD-RED-M-014", barcode: "890002000002", attributes: { color: "Red", size: "M" }, costPrice: 30, sellingPrice: 68, stockQuantity: 20, status: "active" },
+      { id: "var-4", productId: "prod-2", sku: "ZARA-FD-RED-S-014", barcode: "890002000001", attributes: { color: "Red", size: "S" }, costPrice: 30, sellingPrice: 68, stockQuantity: 25, baseUomId: "uom-pcs", status: "active" },
+      { id: "var-5", productId: "prod-2", sku: "ZARA-FD-RED-M-014", barcode: "890002000002", attributes: { color: "Red", size: "M" }, costPrice: 30, sellingPrice: 68, stockQuantity: 20, baseUomId: "uom-pcs", status: "active" },
     ],
-    pricing: { costPrice: 30, sellingPrice: 68, taxRate: 8 },
+    pricing: { baseUomId: "uom-pcs", costPrice: 30, sellingPrice: 68, taxRate: 8 },
+    baseUomId: "uom-pcs",
+    baseUom: mockUoms[0],
     stockQuantity: 45,
     warehouseStock: [
       { warehouseId: "wh-central", warehouseName: "Central Warehouse", available: 45, reserved: 3, incoming: 0 },
@@ -138,7 +150,9 @@ export const mockProducts: Product[] = [
     status: "draft",
     images: [],
     variants: [],
-    pricing: { costPrice: 8, sellingPrice: 15, taxRate: 8 },
+    pricing: { baseUomId: "uom-pcs", costPrice: 8, sellingPrice: 15, taxRate: 8 },
+    baseUomId: "uom-pcs",
+    baseUom: mockUoms[0],
     stockQuantity: 0,
     warehouseStock: [],
     history: [{ id: "h-4", action: "Created", detail: "Product created as draft", actor: "Manager", timestamp: now }],
@@ -162,7 +176,9 @@ export const mockProducts: Product[] = [
       { id: "img-4", url: "https://images.unsplash.com/photo-1624222247344-550fb60583dc?w=400", isPrimary: true, sortOrder: 0 },
     ],
     variants: [],
-    pricing: { costPrice: 12, sellingPrice: 25, taxRate: 8 },
+    pricing: { baseUomId: "uom-pcs", costPrice: 12, sellingPrice: 25, taxRate: 8 },
+    baseUomId: "uom-pcs",
+    baseUom: mockUoms[0],
     stockQuantity: 210,
     warehouseStock: [
       { warehouseId: "wh-central", warehouseName: "Central Warehouse", available: 210, reserved: 0, incoming: 0 },
@@ -190,9 +206,11 @@ export const mockProducts: Product[] = [
       { id: "img-5", url: "https://images.unsplash.com/photo-1539533018447-63fcce2678e3?w=400", isPrimary: true, sortOrder: 0 },
     ],
     variants: [
-      { id: "var-6", productId: "prod-5", sku: "MANGO-WC-BLK-M-009", barcode: "890005000001", attributes: { color: "Black", size: "M" }, costPrice: 60, sellingPrice: 129, stockQuantity: 18, status: "inactive" },
+      { id: "var-6", productId: "prod-5", sku: "MANGO-WC-BLK-M-009", barcode: "890005000001", attributes: { color: "Black", size: "M" }, costPrice: 60, sellingPrice: 129, stockQuantity: 18, baseUomId: "uom-pcs", status: "inactive" },
     ],
-    pricing: { costPrice: 60, sellingPrice: 129, taxRate: 8 },
+    pricing: { baseUomId: "uom-pcs", costPrice: 60, sellingPrice: 129, taxRate: 8 },
+    baseUomId: "uom-pcs",
+    baseUom: mockUoms[0],
     stockQuantity: 18,
     warehouseStock: [
       { warehouseId: "wh-central", warehouseName: "Central Warehouse", available: 18, reserved: 0, incoming: 0 },

@@ -1,9 +1,16 @@
+import axios from "axios"
 import { apiClient } from "@/lib/api/client"
 import { resolveCompanyId } from "@/lib/api/resolve-company-id"
 import { env } from "@/config/env"
 import type { Employee, EmployeeDocument, EmployeeStatus } from "../types"
 import type { EmployeeFormValues } from "../schemas/employee.schema"
-import { mockEmployeeDocuments, mockEmployees } from "./mock-data"
+import {
+  mockBranches,
+  mockDepartments,
+  mockDesignations,
+  mockEmployeeDocuments,
+  mockEmployees,
+} from "./mock-data"
 
 const USE_MOCK = env.NEXT_PUBLIC_USE_MOCK_AUTH
 
@@ -11,16 +18,6 @@ function delay<T>(value: T, ms = 200): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms))
 }
 
-// ---------- Backend DTO types (src/modules/employees + src/modules/hr) ----------
-// Real controller: @Controller('employees') — NOT /hr/employees.
-// Department/designation are NOT returned by GET /employees itself — they
-// live on a separate, distinct-effective-dated EmployeeAssignment record
-// (@Controller('employee-assignments')), joined in below via each
-// employee's current (status=ACTIVE, no effectiveTo in the past) row.
-// There is no manager relationship anywhere in the backend at all — no
-// managerId-equivalent field exists on Employee or EmployeeAssignment —
-// so Employee.managerId/managerName remain genuinely unavailable, not a
-// wiring gap.
 type BackendEmployeeStatus = "ACTIVE" | "INACTIVE" | "TERMINATED"
 
 type BackendEmployee = {
@@ -43,222 +40,206 @@ type BackendEmployee = {
   terminatedAt: string | null
   createdAt: string
   updatedAt: string
+  assignmentId?: string | null
+  departmentId?: string | null
+  departmentName?: string | null
+  designationId?: string | null
+  designationName?: string | null
+  branchName?: string | null
+  assignmentEffectiveFrom?: string | null
 }
 
-type BackendEmployeeAssignmentStatus = "ACTIVE" | "INACTIVE"
-
-type BackendEmployeeAssignment = {
-  id: string
+type AssignmentMutationInput = {
+  assignmentId?: string
   employeeId: string
   companyId: string
   branchId: string
-  departmentId: string | null
-  designationId: string | null
-  warehouseId: string | null
-  effectiveFrom: string
-  effectiveTo: string | null
-  status: BackendEmployeeAssignmentStatus
-}
-
-type BackendDesignation = {
-  id: string
-  companyId: string
-  name: string
-  code: string | null
+  departmentId: string
+  designationId: string
+  joiningDate: string
 }
 
 function mapStatus(status: BackendEmployeeStatus): EmployeeStatus {
   const map: Record<BackendEmployeeStatus, EmployeeStatus> = {
     ACTIVE: "active",
-    INACTIVE: "suspended",
+    INACTIVE: "inactive",
     TERMINATED: "terminated",
   }
   return map[status]
 }
 
-/** The one ACTIVE assignment in effect today for this employee (a real
- * employee could in principle have a future-dated or historical row too —
- * "current" means status=ACTIVE and effectiveFrom has already started). */
-function currentAssignmentFor(
-  employeeId: string,
-  assignments: BackendEmployeeAssignment[],
-): BackendEmployeeAssignment | undefined {
-  const today = new Date().toISOString().slice(0, 10)
-  return assignments
-    .filter(
-      (a) =>
-        a.employeeId === employeeId &&
-        a.status === "ACTIVE" &&
-        a.effectiveFrom <= today &&
-        (!a.effectiveTo || a.effectiveTo >= today),
-    )
-    .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom))[0]
-}
-
-function mapBackendToEmployee(
-  be: BackendEmployee,
-  departments: Array<{ id: string; name: string }> = [],
-  designations: BackendDesignation[] = [],
-  assignments: BackendEmployeeAssignment[] = [],
-): Employee {
-  const assignment = currentAssignmentFor(be.id, assignments)
+function mapBackendToEmployee(employee: BackendEmployee): Employee {
   return {
-    id: be.id,
-    employeeCode: be.employeeCode,
-    name: be.displayName || `${be.firstName} ${be.lastName}`.trim(),
-    gender: "other",
-    dateOfBirth: be.dateOfBirth ?? "",
-    phone: be.phone ?? "",
-    email: be.email ?? "",
-    address: be.address ?? "",
-    departmentId: assignment?.departmentId ?? "",
-    departmentName: departments.find((d) => d.id === assignment?.departmentId)?.name ?? "",
-    designation: designations.find((d) => d.id === assignment?.designationId)?.name ?? "",
-    branchId: be.branchId,
-    // Not returned by GET /employees or resolvable from assignments (no
-    // branch name is included in EmployeeAssignmentResponseDto either) —
-    // callers needing this join /branches themselves.
-    branchName: "",
-    // No employmentType field exists anywhere backend-side — genuinely
-    // unavailable, not a wiring gap. Defaulted for display only.
-    employmentType: "full_time",
-    joiningDate: be.joinedAt ?? be.createdAt,
-    // No manager relationship exists anywhere backend-side.
-    managerId: undefined,
-    managerName: undefined,
-    workingHoursPerWeek: 40,
-    location: "",
-    status: mapStatus(be.status),
+    id: employee.id,
+    userId: employee.userId ?? undefined,
+    assignmentId: employee.assignmentId ?? undefined,
+    employeeCode: employee.employeeCode,
+    name: employee.displayName || `${employee.firstName} ${employee.lastName}`.trim(),
+    dateOfBirth: employee.dateOfBirth ?? "",
+    phone: employee.phone ?? "",
+    email: employee.email ?? "",
+    address: employee.address ?? "",
+    departmentId: employee.departmentId ?? "",
+    departmentName: employee.departmentName ?? "",
+    designationId: employee.designationId ?? undefined,
+    designation: employee.designationName ?? "",
+    branchId: employee.branchId,
+    branchName: employee.branchName ?? "",
+    joiningDate: employee.assignmentEffectiveFrom ?? employee.joinedAt ?? employee.createdAt,
+    status: mapStatus(employee.status),
   }
 }
 
-async function fetchDepartmentsForJoin(companyId: string): Promise<Array<{ id: string; name: string }>> {
-  try {
-    const { data } = await apiClient.get<{ data: Array<{ id: string; name: string }>; meta: unknown }>(
-      "/departments",
-      { params: { companyId, limit: 200 } },
+function splitEmployeeName(name: string) {
+  const normalized = name.trim().replace(/\s+/g, " ")
+  const parts = normalized.split(" ").filter(Boolean)
+  const firstName = parts[0] ?? normalized
+  const lastName = parts.slice(1).join(" ") || firstName
+
+  return {
+    displayName: normalized,
+    firstName,
+    lastName,
+  }
+}
+
+async function upsertEmployeeAssignment(input: AssignmentMutationInput): Promise<void> {
+  const payload = {
+    employeeId: input.employeeId,
+    companyId: input.companyId,
+    branchId: input.branchId,
+    departmentId: input.departmentId,
+    designationId: input.designationId || undefined,
+    effectiveFrom: input.joiningDate,
+  }
+
+  if (input.assignmentId) {
+    await apiClient.patch(
+      `/employee-assignments/${input.assignmentId}`,
+      {
+        departmentId: input.departmentId,
+        designationId: input.designationId || null,
+        effectiveFrom: input.joiningDate,
+      },
+      { params: { companyId: input.companyId } },
     )
-    return data.data ?? []
-  } catch {
-    return []
+    return
   }
+
+  await apiClient.post("/employee-assignments", payload)
 }
 
-async function fetchDesignationsForJoin(companyId: string): Promise<BackendDesignation[]> {
-  try {
-    const { data } = await apiClient.get<{ data: BackendDesignation[]; meta: unknown }>(
-      "/designations",
-      { params: { companyId, limit: 200 } },
-    )
-    return data.data ?? []
-  } catch {
-    return []
-  }
-}
+function mapMockEmployee(values: EmployeeFormValues, id: string): Employee {
+  const department = mockDepartments.find((item) => item.id === values.departmentId)
+  const designation = mockDesignations.find((item) => item.id === values.designationId)
+  const branch = mockBranches.find((item) => item.id === values.branchId)
 
-async function fetchAssignmentsForJoin(companyId: string): Promise<BackendEmployeeAssignment[]> {
-  try {
-    const { data } = await apiClient.get<{ data: BackendEmployeeAssignment[]; meta: unknown }>(
-      "/employee-assignments",
-      { params: { companyId, limit: 200 } },
-    )
-    return data.data ?? []
-  } catch {
-    return []
+  return {
+    id,
+    userId: undefined,
+    assignmentId: `assign-${id}`,
+    employeeCode: values.employeeCode,
+    name: values.name,
+    dateOfBirth: values.dateOfBirth,
+    phone: values.phone,
+    email: values.email,
+    address: values.address,
+    departmentId: values.departmentId,
+    departmentName: department?.name ?? "",
+    designationId: values.designationId || undefined,
+    designation: designation?.name ?? "",
+    branchId: values.branchId,
+    branchName: branch?.name ?? "",
+    joiningDate: values.joiningDate,
+    status: "active",
   }
-}
-
-async function fetchJoinData(companyId: string) {
-  const [departments, designations, assignments] = await Promise.all([
-    fetchDepartmentsForJoin(companyId),
-    fetchDesignationsForJoin(companyId),
-    fetchAssignmentsForJoin(companyId),
-  ])
-  return { departments, designations, assignments }
 }
 
 export async function fetchEmployees(): Promise<Employee[]> {
   if (USE_MOCK) return delay(mockEmployees)
+
   const companyId = await resolveCompanyId()
-  const [empRes, { departments, designations, assignments }] = await Promise.all([
-    apiClient.get<{ data: BackendEmployee[]; meta: unknown }>("/employees", {
-      params: { companyId, limit: 100 },
-    }),
-    fetchJoinData(companyId),
-  ])
-  return (empRes.data.data ?? []).map((be) => mapBackendToEmployee(be, departments, designations, assignments))
+  const { data } = await apiClient.get<{ data: BackendEmployee[]; meta: unknown }>("/employees", {
+    params: { companyId, limit: 100 },
+  })
+
+  return (data.data ?? []).map(mapBackendToEmployee)
 }
 
 export async function fetchEmployeeById(id: string): Promise<Employee | undefined> {
-  if (USE_MOCK) return delay(mockEmployees.find((e) => e.id === id))
+  if (USE_MOCK) return delay(mockEmployees.find((employee) => employee.id === id))
+
   const companyId = await resolveCompanyId()
+
   try {
-    const [empRes, { departments, designations, assignments }] = await Promise.all([
-      apiClient.get<BackendEmployee>(`/employees/${id}`, { params: { companyId } }),
-      fetchJoinData(companyId),
-    ])
-    return mapBackendToEmployee(empRes.data, departments, designations, assignments)
-  } catch {
-    return undefined
+    const { data } = await apiClient.get<BackendEmployee>(`/employees/${id}`, { params: { companyId } })
+    return mapBackendToEmployee(data)
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return undefined
+    }
+    throw error
   }
 }
 
-/** Documents are not part of the Phase 00-31 employees API — no backend
- * endpoint exists yet, so this returns an empty list against a live backend
- * instead of calling a fictional route. */
 export async function fetchEmployeeDocuments(employeeId: string): Promise<EmployeeDocument[]> {
-  if (USE_MOCK) return delay(mockEmployeeDocuments.filter((d) => d.employeeId === employeeId))
+  if (USE_MOCK) return delay(mockEmployeeDocuments.filter((document) => document.employeeId === employeeId))
   return []
 }
 
 export async function createEmployee(values: EmployeeFormValues): Promise<Employee> {
   if (USE_MOCK) {
-    const { mockDepartments } = await import("./mock-data")
-    const department = mockDepartments.find((d) => d.id === values.departmentId)
-    return delay({
-      id: `emp-${Date.now()}`,
-      ...values,
-      departmentName: department?.name ?? "",
-      branchName: "",
-      status: values.status,
-    })
+    return delay(mapMockEmployee(values, `emp-${Date.now()}`))
   }
+
   const companyId = await resolveCompanyId()
-  const [firstName, ...rest] = values.name.trim().split(" ")
-  // employeeCode is a required CreateEmployeeDto field — live-verified as
-  // required (a create without it 400s "employeeCode must be a string");
-  // the form already collects it as "Employee ID," it just wasn't being
-  // sent.
+  const { firstName, lastName, displayName } = splitEmployeeName(values.name)
   const { data } = await apiClient.post<BackendEmployee>("/employees", {
     companyId,
     branchId: values.branchId,
     employeeCode: values.employeeCode,
-    firstName: firstName || values.name,
-    lastName: rest.join(" ") || "-",
+    firstName,
+    lastName,
+    displayName,
     phone: values.phone || undefined,
     email: values.email || undefined,
     dateOfBirth: values.dateOfBirth || undefined,
     address: values.address || undefined,
   })
-  return mapBackendToEmployee(data)
+
+  await upsertEmployeeAssignment({
+    employeeId: data.id,
+    companyId,
+    branchId: values.branchId,
+    departmentId: values.departmentId,
+    designationId: values.designationId,
+    joiningDate: values.joiningDate,
+  })
+
+  return (await fetchEmployeeById(data.id)) ?? mapMockEmployee(values, data.id)
 }
 
 export async function updateEmployee(id: string, values: EmployeeFormValues): Promise<Employee> {
   if (USE_MOCK) {
-    const existing = mockEmployees.find((e) => e.id === id)
+    const existing = mockEmployees.find((employee) => employee.id === id)
     if (!existing) throw new Error("Employee not found")
-    return delay({ ...existing, ...values })
+    return delay({
+      ...existing,
+      ...mapMockEmployee(values, id),
+      status: existing.status,
+    })
   }
+
   const companyId = await resolveCompanyId()
-  const [firstName, ...rest] = values.name.trim().split(" ")
-  // companyId is an optional query param the route uses for DataScope
-  // resolution — live-verified as required in this environment (omitting
-  // it 400s "companyId is required").
-  const { data } = await apiClient.patch<BackendEmployee>(
+  const existing = await fetchEmployeeById(id)
+  const { firstName, lastName, displayName } = splitEmployeeName(values.name)
+
+  await apiClient.patch<BackendEmployee>(
     `/employees/${id}`,
     {
-      firstName: firstName || values.name,
-      lastName: rest.join(" ") || "-",
+      firstName,
+      lastName,
+      displayName,
       phone: values.phone || undefined,
       email: values.email || undefined,
       dateOfBirth: values.dateOfBirth || undefined,
@@ -266,14 +247,40 @@ export async function updateEmployee(id: string, values: EmployeeFormValues): Pr
     },
     { params: { companyId } },
   )
-  return mapBackendToEmployee(data)
+
+  await upsertEmployeeAssignment({
+    assignmentId: existing?.assignmentId,
+    employeeId: id,
+    companyId,
+    branchId: existing?.branchId ?? values.branchId,
+    departmentId: values.departmentId,
+    designationId: values.designationId,
+    joiningDate: values.joiningDate,
+  })
+
+  return (await fetchEmployeeById(id)) ?? mapMockEmployee(values, id)
 }
 
-/** The employees API has no DELETE — employees are deactivated/terminated
- * instead (POST :id/deactivate, POST :id/terminate). Deactivate is the
- * closest safe equivalent to a destructive "delete" from the UI. */
 export async function deleteEmployee(id: string): Promise<void> {
   if (USE_MOCK) return delay(undefined)
   const companyId = await resolveCompanyId()
   await apiClient.post(`/employees/${id}/deactivate`, {}, { params: { companyId } })
+}
+
+export async function destroyEmployee(id: string): Promise<void> {
+  if (USE_MOCK) return delay(undefined)
+  const companyId = await resolveCompanyId()
+  await apiClient.delete(`/employees/${id}`, { params: { companyId } })
+}
+
+export async function activateEmployee(id: string): Promise<void> {
+  if (USE_MOCK) return delay(undefined)
+  const companyId = await resolveCompanyId()
+  await apiClient.post(`/employees/${id}/activate`, {}, { params: { companyId } })
+}
+
+export async function terminateEmployee(id: string): Promise<void> {
+  if (USE_MOCK) return delay(undefined)
+  const companyId = await resolveCompanyId()
+  await apiClient.post(`/employees/${id}/terminate`, {}, { params: { companyId } })
 }

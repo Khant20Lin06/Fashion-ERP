@@ -26,7 +26,7 @@ type PaymentPanelProps = {
 /** Payment dialog — Cart -> Customer -> Discount -> Payment -> Invoice -> Stock Update. */
 export function PaymentPanel({ open, onOpenChange }: PaymentPanelProps) {
   const router = useRouter()
-  const { items, customerId, promotionCode, clearCart } = useCartStore()
+  const { items, customerId, priceListId, promotionCode, clearCart } = useCartStore()
   const checkout = useCheckout()
   const [method, setMethod] = useState<PaymentMethod>("cash")
   const [amountTendered, setAmountTendered] = useState(0)
@@ -39,6 +39,7 @@ export function PaymentPanel({ open, onOpenChange }: PaymentPanelProps) {
     checkout.mutate(
       {
         customerId,
+        priceListId,
         items,
         paymentMethod: method,
         amountTendered: method === "cash" ? amountTendered : totals.grandTotal,

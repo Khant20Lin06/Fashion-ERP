@@ -5,8 +5,10 @@ import {
   createLeaveRequest,
   fetchLeaveBalances,
   fetchLeaveDashboardMetrics,
+  fetchLeaveTypeOptions,
   fetchLeaveRequests,
   updateLeaveRequestStatus,
+  type LeaveTypeOption,
 } from "../api/leave.api"
 import type { LeaveRequestFormValues } from "../schemas/leave.schema"
 import type { LeaveStatus } from "../types"
@@ -17,6 +19,10 @@ export function useLeaveRequests() {
 
 export function useLeaveDashboardMetrics() {
   return useQuery({ queryKey: ["hr", "leaves", "metrics"], queryFn: fetchLeaveDashboardMetrics })
+}
+
+export function useLeaveTypeOptions() {
+  return useQuery<LeaveTypeOption[]>({ queryKey: ["hr", "leave-types", "options"], queryFn: fetchLeaveTypeOptions })
 }
 
 export function useLeaveBalances(employeeId: string | undefined) {

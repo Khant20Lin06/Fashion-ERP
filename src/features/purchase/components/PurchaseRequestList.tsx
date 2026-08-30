@@ -20,8 +20,8 @@ export function PurchaseRequestList() {
   if (isLoading) {
     return (
       <div className="flex flex-col gap-3">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-20 w-full" />
+        {Array.from({ length: 3 }).map((_, index) => (
+          <Skeleton key={index} className="h-20 w-full" />
         ))}
       </div>
     )
@@ -44,10 +44,10 @@ export function PurchaseRequestList() {
                 <PurchaseStatusBadge status={request.status} />
               </div>
               <p className="text-sm">
-                {request.department} · Requested by {request.requester}
+                {request.department} | Requested by {request.requester}
               </p>
               <p className="text-xs text-muted-foreground">
-                {request.items.length} item(s) · Required by {new Date(request.requiredDate).toLocaleDateString()} ·{" "}
+                {request.items.length} item(s) | Required by {new Date(request.requiredDate).toLocaleDateString()} |{" "}
                 {formatRelativeTime(request.createdAt)}
               </p>
             </div>
@@ -74,16 +74,23 @@ export function PurchaseRequestList() {
                 </>
               )}
               {request.status === "approved" && (
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    updateStatus({ id: request.id, status: "converted" })
-                    router.push("/dashboard/purchase/orders/create")
-                  }}
-                  disabled={isPending}
-                >
-                  Convert to Purchase Order
-                </Button>
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => router.push(`/dashboard/purchase/rfq?requestId=${request.id}`)}
+                    disabled={isPending}
+                  >
+                    Create RFQ
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => router.push(`/dashboard/purchase/orders/create?requestId=${request.id}`)}
+                    disabled={isPending}
+                  >
+                    Create Purchase Order
+                  </Button>
+                </>
               )}
               {request.status === "converted" && <Badge variant="outline">Converted</Badge>}
             </div>

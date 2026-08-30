@@ -40,6 +40,7 @@ export function CartItem({ item, onQuantityChange, onDiscountChange, onRemove, c
             {(item.color || item.size) && (
               <p className="text-xs text-muted-foreground">{[item.color, item.size].filter(Boolean).join(" / ")}</p>
             )}
+            {item.uomLabel ? <p className="text-xs text-muted-foreground">UOM: {item.uomLabel}</p> : null}
           </div>
           <Button size="icon" variant="ghost" className="size-6 shrink-0" onClick={onRemove} aria-label="Remove item">
             <Trash2 className="size-3.5 text-destructive" />

@@ -1,15 +1,20 @@
 import { apiClient } from "@/lib/api/client"
 import { env } from "@/config/env"
-import { tryResolveCompanyId as resolveCompanyId } from "@/lib/api/resolve-company-id"
+import { resolveCompanyId } from "@/lib/api/resolve-company-id"
 import { resolveCompanyCurrency } from "@/lib/api/resolve-company-currency"
 import { resolveBranchId as resolveOrgBranchId, resolveWarehouseId as resolveOrgWarehouseId } from "@/lib/api/resolve-org-ids"
+import { toApiError } from "@/lib/api/errors"
 import type {
   CustomerAnalyticsSummary,
   ProductPerformancePoint,
+  ProductPerformanceSummary,
   RevenueTrendGranularity,
   RevenueTrendPoint,
+  SalesItemPricingPreview,
+  SalesReportFilters,
   SalesKpis,
   SalesOrder,
+  SalesPriceListOption,
   SalesOrderStatus,
 } from "../types"
 import type { SalesOrderFormValues } from "../schemas/sales.schema"
@@ -34,6 +39,9 @@ export type BackendSaleItem = {
   saleId: string
   productVariantId: string
   quantity: number
+  uomId?: string | null
+  uomCodeSnapshot?: string | null
+  uomNameSnapshot?: string | null
   unitPriceSnapshot: string
   discountSnapshot: string
   taxSnapshot: string
@@ -62,6 +70,26 @@ export type BackendSale = {
   createdAt: string
   updatedAt: string
   items?: BackendSaleItem[]
+}
+
+type BackendSalesPriceListOption = {
+  id: string
+  code: string
+  name: string
+  currency: string
+}
+
+type BackendSalesItemPricingPreview = {
+  productVariantId: string
+  priceListId: string
+  uomId: string | null
+  uomCode: string | null
+  uomName: string | null
+  quantity: number
+  baseQuantity: number
+  conversionFactorToBase: string
+  unitPrice: string
+  transactionDate: string
 }
 
 // ---------- Helper for resolving branch/warehouse IDs ----------
@@ -102,6 +130,8 @@ function mapBackendSaleToOrder(sale: BackendSale, customers: Array<{ id: string,
       productId: item.productVariantId,
       productName: item.productNameSnapshot || item.productVariantId,
       sku: item.skuSnapshot || item.productVariantId,
+      uomId: item.uomId ?? undefined,
+      uomLabel: item.uomNameSnapshot ?? item.uomCodeSnapshot ?? undefined,
       quantity: item.quantity,
       price: Number(item.unitPriceSnapshot || 0),
       discount: Number(item.discountSnapshot || 0),
@@ -116,6 +146,7 @@ function mapBackendSaleToOrder(sale: BackendSale, customers: Array<{ id: string,
     orderNumber: sale.saleNumber,
     customerId: sale.customerId,
     customerName,
+    priceListId: undefined,
     items,
     deliveryDate: sale.transactionDate,
     paymentTerms: "Immediate",
@@ -178,6 +209,58 @@ export async function fetchSalesOrderById(id: string, companyId?: string): Promi
   return mapBackendSaleToOrder(saleRes.data, customersRes.data.data ?? [])
 }
 
+export async function fetchSalesPriceLists(companyId?: string): Promise<SalesPriceListOption[]> {
+  if (USE_MOCK) {
+    return delay([
+      { id: "price-list-retail", code: "RETAIL", name: "Retail Selling Price", currency: "USD" },
+      { id: "price-list-wholesale", code: "WHOLESALE", name: "Wholesale Price List", currency: "USD" },
+    ])
+  }
+
+  const resolvedCompanyId = await resolveCompanyId(companyId)
+  const { data } = await apiClient.get<BackendSalesPriceListOption[]>("/sales/pricing/price-lists", {
+    params: { companyId: resolvedCompanyId },
+  })
+  return (data ?? []).map(mapSalesPriceListOption)
+}
+
+export async function previewSalesItemPricing(
+  values: {
+    productVariantId: string
+    quantity: number
+    uomId?: string
+    priceListId?: string
+    transactionDate?: string
+  },
+  companyId?: string,
+): Promise<SalesItemPricingPreview> {
+  if (USE_MOCK) {
+    return delay({
+      productVariantId: values.productVariantId,
+      priceListId: values.priceListId ?? "price-list-retail",
+      uomId: values.uomId,
+      uomCode: undefined,
+      uomName: undefined,
+      quantity: values.quantity,
+      baseQuantity: values.quantity,
+      conversionFactorToBase: "1.0000",
+      unitPrice: 100,
+      transactionDate: values.transactionDate ?? new Date().toISOString(),
+    })
+  }
+
+  const resolvedCompanyId = await resolveCompanyId(companyId)
+  const { data } = await apiClient.post<BackendSalesItemPricingPreview>("/sales/pricing/preview", {
+    companyId: resolvedCompanyId,
+    productVariantId: values.productVariantId,
+    quantity: values.quantity,
+    uomId: values.uomId || undefined,
+    priceListId: values.priceListId || undefined,
+    transactionDate: values.transactionDate || undefined,
+  })
+  return mapSalesItemPricingPreview(data)
+}
+
 export async function createSalesOrder(values: SalesOrderFormValues, companyId?: string): Promise<SalesOrder> {
   if (USE_MOCK) {
     const customer = mockCustomers.find((c) => c.id === values.customerId)
@@ -194,6 +277,7 @@ export async function createSalesOrder(values: SalesOrderFormValues, companyId?:
       orderNumber: `SO-2026-${String(Math.floor(Math.random() * 9000) + 1000)}`,
       customerId: values.customerId,
       customerName: customer?.name ?? "",
+      priceListId: values.priceListId || undefined,
       items,
       deliveryDate: values.deliveryDate,
       paymentTerms: values.paymentTerms,
@@ -223,6 +307,8 @@ export async function createSalesOrder(values: SalesOrderFormValues, companyId?:
     transactionDate: values.deliveryDate ? new Date(values.deliveryDate).toISOString() : new Date().toISOString(),
     items: values.items.map((item) => ({
       productVariantId: item.productId,
+      uomId: item.uomId || undefined,
+      priceListId: values.priceListId || undefined,
       quantity: item.quantity,
       discountAmount: String(item.discount || 0),
       taxAmount: String(item.tax || 0),
@@ -314,6 +400,46 @@ interface BackendSalesByCustomerRow {
   grandTotal: string
 }
 
+interface BackendSalesCustomerSummary {
+  newCustomers: number
+  returningCustomers: number
+  averageCustomerSpend: string | number
+}
+
+function buildSalesReportParams(companyId: string, filters?: SalesReportFilters, extra?: Record<string, string | number | undefined>) {
+  return {
+    companyId,
+    branchId: filters?.branchId,
+    fromDate: filters?.fromDate,
+    toDate: filters?.toDate,
+    ...extra,
+  }
+}
+
+function mapSalesPriceListOption(entry: BackendSalesPriceListOption): SalesPriceListOption {
+  return {
+    id: entry.id,
+    code: entry.code,
+    name: entry.name,
+    currency: entry.currency,
+  }
+}
+
+function mapSalesItemPricingPreview(entry: BackendSalesItemPricingPreview): SalesItemPricingPreview {
+  return {
+    productVariantId: entry.productVariantId,
+    priceListId: entry.priceListId,
+    uomId: entry.uomId ?? undefined,
+    uomCode: entry.uomCode ?? undefined,
+    uomName: entry.uomName ?? undefined,
+    quantity: entry.quantity,
+    baseQuantity: entry.baseQuantity,
+    conversionFactorToBase: entry.conversionFactorToBase,
+    unitPrice: Number(entry.unitPrice),
+    transactionDate: entry.transactionDate,
+  }
+}
+
 // These four functions intentionally do NOT catch-and-return zeroed data on
 // failure (a prior version did, which silently rendered "0 sales today" on
 // any network/auth/server error — indistinguishable from a real slow day).
@@ -352,10 +478,13 @@ export async function fetchSalesKpis(): Promise<SalesKpis> {
   }
 }
 
-export async function fetchRevenueTrend(granularity: RevenueTrendGranularity): Promise<RevenueTrendPoint[]> {
+export async function fetchRevenueTrend(
+  granularity: RevenueTrendGranularity,
+  filters?: SalesReportFilters,
+): Promise<RevenueTrendPoint[]> {
   const companyId = await resolveCompanyId()
   const { data } = await apiClient.get<BackendSalesByDateRow[]>("/reports/sales/by-date", {
-    params: { granularity, companyId },
+    params: buildSalesReportParams(companyId, filters, { granularity }),
   })
   return data.map((item) => {
     const dateVal = item.date || item.period || ""
@@ -376,33 +505,74 @@ export async function fetchRevenueTrend(granularity: RevenueTrendGranularity): P
   })
 }
 
-export async function fetchProductPerformance(): Promise<ProductPerformancePoint[]> {
+export async function fetchProductPerformance(filters?: SalesReportFilters): Promise<ProductPerformanceSummary> {
   const companyId = await resolveCompanyId()
-  const { data } = await apiClient.get<BackendSalesByProductRow[]>("/reports/sales/by-product", { params: { companyId } })
-  return data.map((item) => ({
+  const mapRow = (item: BackendSalesByProductRow): ProductPerformancePoint => ({
     productName: item.productName || "",
     unitsSold: Number(item.unitsSold || 0),
     revenue: Number(item.revenue || 0),
-  }))
+  })
+  try {
+    const [topSellingRes, slowMovingRes] = await Promise.all([
+      apiClient.get<BackendSalesByProductRow[]>("/reports/sales/by-product", {
+        params: buildSalesReportParams(companyId, filters, {
+          sortBy: "unitsSold",
+          sortDirection: "DESC",
+          limit: 5,
+        }),
+      }),
+      apiClient.get<BackendSalesByProductRow[]>("/reports/sales/by-product", {
+        params: buildSalesReportParams(companyId, filters, {
+          sortBy: "unitsSold",
+          sortDirection: "ASC",
+          limit: 5,
+        }),
+      }),
+    ])
+
+    return {
+      topSelling: topSellingRes.data.map(mapRow),
+      slowMoving: slowMovingRes.data.map(mapRow),
+    }
+  } catch (error) {
+    const apiError = toApiError(error)
+    if (apiError.isForbidden || apiError.isUnauthorized) throw apiError
+
+    const { data } = await apiClient.get<BackendSalesByProductRow[]>("/reports/sales/by-product", {
+      params: buildSalesReportParams(companyId, filters),
+    })
+    const rows = data.map(mapRow).sort((a, b) => b.unitsSold - a.unitsSold)
+    return {
+      topSelling: rows.slice(0, 5),
+      slowMoving: rows.slice(-5).reverse(),
+    }
+  }
 }
 
-export async function fetchCustomerAnalyticsSummary(): Promise<CustomerAnalyticsSummary> {
+export async function fetchCustomerAnalyticsSummary(filters?: SalesReportFilters): Promise<CustomerAnalyticsSummary> {
   const companyId = await resolveCompanyId()
-  // The real backend `/reports/sales/by-customer` endpoint returns a
-  // per-customer array (BackendSalesByCustomerRow[]), not a single
-  // {newCustomers, returningCustomers, customerLifetimeValue} aggregate —
-  // that concept doesn't exist server-side. "New" vs "returning" isn't
-  // distinguishable from this row shape alone (no first-purchase-date
-  // field), so newCustomers/returningCustomers are left at 0 — real but
-  // conservative — rather than guessed.
-  const { data } = await apiClient.get<BackendSalesByCustomerRow[]>("/reports/sales/by-customer", {
-    params: { companyId },
-  })
-  const totalRevenue = data.reduce((sum, row) => sum + Number(row.grandTotal || 0), 0)
-  const customerLifetimeValue = data.length > 0 ? totalRevenue / data.length : 0
-  return {
-    newCustomers: 0,
-    returningCustomers: 0,
-    customerLifetimeValue,
+  try {
+    const { data } = await apiClient.get<BackendSalesCustomerSummary>("/reports/sales/customer-summary", {
+      params: buildSalesReportParams(companyId, filters),
+    })
+    return {
+      newCustomers: Number(data.newCustomers || 0),
+      returningCustomers: Number(data.returningCustomers || 0),
+      averageCustomerSpend: Number(data.averageCustomerSpend || 0),
+    }
+  } catch (error) {
+    const apiError = toApiError(error)
+    if (apiError.isForbidden || apiError.isUnauthorized) throw apiError
+
+    const { data } = await apiClient.get<BackendSalesByCustomerRow[]>("/reports/sales/by-customer", {
+      params: buildSalesReportParams(companyId, filters),
+    })
+    const totalRevenue = data.reduce((sum, row) => sum + Number(row.grandTotal || 0), 0)
+    const newCustomers = data.filter((row) => Number(row.saleCount || 0) <= 1).length
+    return {
+      newCustomers,
+      returningCustomers: Math.max(data.length - newCustomers, 0),
+      averageCustomerSpend: data.length > 0 ? totalRevenue / data.length : 0,
+    }
   }
 }

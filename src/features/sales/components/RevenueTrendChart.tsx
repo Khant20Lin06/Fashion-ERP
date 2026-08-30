@@ -11,12 +11,13 @@ import {
   ResponsiveContainer,
 } from "recharts"
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { chartColors } from "@/components/charts/chart-colors"
 import { ErrorState } from "@/components/ui/error-state"
 import { formatCurrency } from "@/lib/format"
 import { useRevenueTrend } from "../hooks/useSales"
-import type { RevenueTrendGranularity } from "../types"
+import type { RevenueTrendGranularity, SalesReportFilters } from "../types"
 
 const tooltipStyle = {
   borderRadius: "var(--radius-md)",
@@ -27,9 +28,9 @@ const tooltipStyle = {
 }
 
 /** Revenue Trend widget with Daily/Weekly/Monthly/Yearly granularity toggle. */
-export function RevenueTrendChart() {
+export function RevenueTrendChart({ filters }: { filters?: SalesReportFilters }) {
   const [granularity, setGranularity] = useState<RevenueTrendGranularity>("daily")
-  const { data, isError, refetch } = useRevenueTrend(granularity)
+  const { data, isError, refetch } = useRevenueTrend(granularity, filters)
 
   return (
     <Card>
@@ -49,6 +50,8 @@ export function RevenueTrendChart() {
       <CardContent>
         {isError ? (
           <ErrorState message="Couldn't load revenue trend." onRetry={refetch} />
+        ) : !data || data.length === 0 ? (
+          <EmptyState title="No revenue trend data" description="Completed sales in the selected range will appear here." />
         ) : (
         <ResponsiveContainer key={granularity} width="99%" height={280}>
           <AreaChart data={data ?? []} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>

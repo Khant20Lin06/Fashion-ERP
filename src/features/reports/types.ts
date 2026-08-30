@@ -132,11 +132,13 @@ export type PurchaseReportMetrics = {
 
 export type SupplierPerformanceRow = {
   supplierId: string
+  supplierCode: string
   supplierName: string
+  purchaseOrderCount: number
   purchaseAmount: number
-  deliveryRatePercent: number
-  qualityScore: number
-  paymentStatus: "paid" | "partial" | "unpaid"
+  deliveryRatePercent?: number | null
+  qualityScore?: number | null
+  paymentStatus?: "paid" | "partial" | "unpaid" | null
 }
 
 export type PurchaseTrendPoint = {
@@ -216,12 +218,28 @@ export type ColorAnalysisPoint = {
 
 // --- Financial Reports ---
 
+export type FinancialReportFilters = {
+  branchId?: string
+  fromDate?: string
+  toDate?: string
+}
+
+export type ProfitLossAccountRow = {
+  accountId: string
+  accountCode: string
+  accountName: string
+  amount: number
+}
+
 export type FinancialOverview = {
+  fromDate: string | null
+  toDate: string | null
   revenue: number
-  costOfGoodsSold: number
-  grossProfit: number
   expenses: number
+  operatingResult: number
   netProfit: number
+  revenueRows: ProfitLossAccountRow[]
+  expenseRows: ProfitLossAccountRow[]
 }
 
 export type ProfitTrendPoint = {

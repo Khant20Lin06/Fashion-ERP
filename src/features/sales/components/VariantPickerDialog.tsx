@@ -1,6 +1,7 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { Package } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -11,16 +12,34 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { buildNativeScrollbarClassName } from "@/components/ui/native-scrollbar.classes"
 import { cn } from "@/lib/utils"
 import { formatCurrency } from "@/lib/format"
 import { attributeOptions } from "@/features/products/api/mock-data"
+import { MAX_PRICE_LIST_ITEMS_QUERY_LIMIT } from "@/features/products/api/price-list-query-limit"
+import { VariantTransactionUomSelect } from "@/features/products/components/VariantTransactionUomSelect"
+import { buildTransactionUomOptions } from "@/features/products/components/variant-transaction-uom-options"
+import { usePriceListItems } from "@/features/products/hooks/usePriceLists"
+import { useVariantUoms } from "@/features/products/hooks/useVariantUoms"
+import { previewSalesItemPricing } from "../api/sales.api"
+import { resolvePricedTransactionUomOptions } from "./priced-transaction-uom-options"
+import { resolveSellableVariantIds } from "./sellable-variants"
 import type { Product, ProductVariant } from "@/features/products/types"
+
+export type PosVariantSelection = {
+  variant: ProductVariant
+  quantity: number
+  uomId?: string
+  uomLabel?: string
+  unitPrice: number
+}
 
 type VariantPickerDialogProps = {
   product: Product | undefined
+  priceListId?: string
   open: boolean
   onOpenChange: (open: boolean) => void
-  onConfirm: (variant: ProductVariant) => void
+  onConfirm: (selection: PosVariantSelection) => void
 }
 
 const swatchByColor = new Map(
@@ -28,12 +47,17 @@ const swatchByColor = new Map(
 )
 
 /** Color/size picker shown before adding a multi-variant product to the POS cart. */
-export function VariantPickerDialog({ product, open, onOpenChange, onConfirm }: VariantPickerDialogProps) {
+export function VariantPickerDialog({ product, priceListId, open, onOpenChange, onConfirm }: VariantPickerDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         {open && product && (
-          <VariantPickerDialogContent product={product} onOpenChange={onOpenChange} onConfirm={onConfirm} />
+          <VariantPickerDialogContent
+            product={product}
+            priceListId={priceListId}
+            onOpenChange={onOpenChange}
+            onConfirm={onConfirm}
+          />
         )}
       </DialogContent>
     </Dialog>
@@ -101,14 +125,41 @@ function resolveAttrs(v: ProductVariant): { color?: string; size?: string } {
 
 function VariantPickerDialogContent({
   product,
+  priceListId,
   onOpenChange,
   onConfirm,
 }: {
   product: Product
+  priceListId?: string
   onOpenChange: (open: boolean) => void
-  onConfirm: (variant: ProductVariant) => void
+  onConfirm: (selection: PosVariantSelection) => void
 }) {
-  const activeVariants = useMemo(() => product.variants.filter((v) => v.status === "active"), [product])
+  const [transactionDate] = useState(() => new Date().toISOString())
+  const allActiveVariants = useMemo(() => product.variants.filter((v) => v.status === "active"), [product])
+  const { data: productPriceListItems = [], isLoading: isLoadingProductPriceListItems } = usePriceListItems(priceListId, {
+    limit: MAX_PRICE_LIST_ITEMS_QUERY_LIMIT,
+  })
+  const sellableVariantIds = useMemo(() => {
+    if (!priceListId) {
+      return new Set(allActiveVariants.map((variant) => variant.id))
+    }
+
+    return resolveSellableVariantIds(
+      allActiveVariants.map((variant) => variant.id),
+      productPriceListItems,
+      transactionDate,
+    )
+  }, [allActiveVariants, priceListId, productPriceListItems, transactionDate])
+  const activeVariants = useMemo(
+    () =>
+      allActiveVariants.filter((variant) => {
+        if (!priceListId || isLoadingProductPriceListItems) {
+          return true
+        }
+        return sellableVariantIds.has(variant.id)
+      }),
+    [allActiveVariants, isLoadingProductPriceListItems, priceListId, sellableVariantIds],
+  )
 
   // Enrich each variant with resolved color/size
   const enriched = useMemo(
@@ -168,6 +219,126 @@ function VariantPickerDialogContent({
   const fallbackVariant = activeVariants.find((v) => v.id === selectedVariantId) ?? activeVariants[0]
   const displayVariant = hasOptions ? matchedVariant : fallbackVariant
   const displayOutOfStock = !displayVariant || displayVariant.stockQuantity <= 0
+  const { data: variantMappings } = useVariantUoms(displayVariant?.id ?? "")
+  const { data: priceListItems = [], isLoading: isLoadingPriceListItems } = usePriceListItems(priceListId, {
+    productVariantId: displayVariant?.id,
+    limit: MAX_PRICE_LIST_ITEMS_QUERY_LIMIT,
+  })
+  const allUomOptions = useMemo(
+    () => (displayVariant ? buildTransactionUomOptions(displayVariant, variantMappings, "SALES") : []),
+    [displayVariant, variantMappings],
+  )
+  const pricedUomOptions = useMemo(() => {
+    if (!displayVariant) {
+      return []
+    }
+    if (!priceListId) {
+      return allUomOptions
+    }
+    return resolvePricedTransactionUomOptions({
+      options: allUomOptions,
+      priceListItems,
+      productVariantId: displayVariant.id,
+      transactionDate,
+    })
+  }, [allUomOptions, displayVariant, priceListId, priceListItems, transactionDate])
+  const visibleUomOptions = priceListId && !isLoadingPriceListItems ? pricedUomOptions : allUomOptions
+  const [selectedUomState, setSelectedUomState] = useState<{
+    variantId?: string
+    uomId?: string
+    uomLabel?: string
+    factor: number
+  }>({
+    factor: 1,
+  })
+  const selectedUomOption = useMemo(() => {
+    if (!displayVariant) {
+      return undefined
+    }
+    const selectedOption =
+      selectedUomState.variantId === displayVariant.id
+        ? pricedUomOptions.find((option) => option.value === selectedUomState.uomId)
+        : undefined
+    if (selectedOption) {
+      return selectedOption
+    }
+    if (priceListId && !isLoadingPriceListItems) {
+      return pricedUomOptions[0]
+    }
+    return allUomOptions[0]
+  }, [
+    allUomOptions,
+    displayVariant,
+    isLoadingPriceListItems,
+    priceListId,
+    pricedUomOptions,
+    selectedUomState.uomId,
+    selectedUomState.variantId,
+  ])
+  const selectedUomId = selectedUomOption?.value
+  const selectedUomLabel =
+    selectedUomOption?.label ?? displayVariant?.baseUom?.name ?? displayVariant?.baseUomId
+  const selectedFactor = selectedUomOption?.factor ?? 1
+  const isResolvingPricedUoms = !!displayVariant && !!priceListId && isLoadingPriceListItems
+  const hasPricedUoms = pricedUomOptions.length > 0
+  const pricingPreviewQuery = useQuery({
+    queryKey: ["sales", "pricing", "preview", displayVariant?.id ?? null, selectedUomId ?? null, priceListId ?? null, qty],
+    queryFn: () =>
+      previewSalesItemPricing({
+        productVariantId: displayVariant!.id,
+        quantity: qty,
+        uomId: selectedUomId,
+        priceListId,
+        transactionDate,
+      }),
+    enabled: !!displayVariant && !isResolvingPricedUoms && (!!selectedUomOption || !priceListId) && (!priceListId || hasPricedUoms),
+    retry: false,
+  })
+  const resolvedUnitPrice = pricingPreviewQuery.data?.unitPrice ?? null
+  const isResolvingPrice = pricingPreviewQuery.isFetching
+  const pricingError =
+    priceListId && !isResolvingPricedUoms && !hasPricedUoms
+      ? "No active price is configured for this variant in the selected sales price list."
+      : pricingPreviewQuery.error?.message ?? null
+
+  useEffect(() => {
+    if (colors.length === 0) {
+      if (selectedColor !== undefined) {
+        setSelectedColor(undefined)
+      }
+      return
+    }
+
+    if (!selectedColor || !colors.includes(selectedColor)) {
+      setSelectedColor(colors[0])
+    }
+  }, [colors, selectedColor])
+
+  useEffect(() => {
+    if (sizes.length === 0) {
+      if (selectedSize !== undefined) {
+        setSelectedSize(undefined)
+      }
+      return
+    }
+
+    if (!selectedSize || !sizes.includes(selectedSize)) {
+      setSelectedSize(sizes[0])
+    }
+  }, [selectedSize, sizes])
+
+  useEffect(() => {
+    if (activeVariants.length === 0) {
+      if (selectedVariantId !== "") {
+        setSelectedVariantId("")
+      }
+      return
+    }
+
+    if (!activeVariants.some((variant) => variant.id === selectedVariantId)) {
+      setSelectedVariantId(activeVariants[0]?.id ?? "")
+    }
+  }, [activeVariants, selectedVariantId])
 
   return (
     <>
@@ -176,8 +347,18 @@ function VariantPickerDialogContent({
       </DialogHeader>
 
       <div className="flex flex-col gap-4">
+        {priceListId && isLoadingProductPriceListItems ? (
+          <p className="text-sm text-muted-foreground">Loading sellable variants...</p>
+        ) : null}
+
+        {priceListId && !isLoadingProductPriceListItems && activeVariants.length === 0 ? (
+          <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+            This product has no sellable variants in the selected sales price list.
+          </div>
+        ) : null}
+
         {/* ── Color pills ─────────────────────────── */}
-        {colors.length > 0 && (
+        {activeVariants.length > 0 && colors.length > 0 && (
           <div className="space-y-2">
             <p className="text-sm font-medium text-foreground">Color</p>
             <div className="flex flex-wrap gap-2">
@@ -213,7 +394,7 @@ function VariantPickerDialogContent({
         )}
 
         {/* ── Size pills ──────────────────────────── */}
-        {sizes.length > 0 && (
+        {activeVariants.length > 0 && sizes.length > 0 && (
           <div className="space-y-2">
             <p className="text-sm font-medium text-foreground">Size</p>
             <div className="flex flex-wrap gap-2">
@@ -243,7 +424,7 @@ function VariantPickerDialogContent({
         {!hasOptions && activeVariants.length > 1 && (
           <div className="space-y-2">
             <p className="text-sm font-medium text-foreground">Variant</p>
-            <div className="flex flex-col gap-1.5 max-h-44 overflow-y-auto pr-1">
+            <div className={buildNativeScrollbarClassName("flex flex-col gap-1.5 max-h-44")}>
               {activeVariants.map((v) => (
                 <button
                   key={v.id}
@@ -281,13 +462,44 @@ function VariantPickerDialogContent({
               <Badge variant="destructive">Out of Stock</Badge>
             )}
             {displayVariant && (
-              <span className="text-base font-semibold">{formatCurrency(displayVariant.sellingPrice)}</span>
+              <span className="text-base font-semibold">
+                {isResolvingPrice
+                  ? "Resolving..."
+                  : formatCurrency(resolvedUnitPrice ?? selectedUnitPrice(displayVariant, selectedFactor))}
+              </span>
             )}
           </div>
         </div>
 
+        {displayVariant && visibleUomOptions.length > 1 ? (
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-foreground">UOM</p>
+            <VariantTransactionUomSelect
+              variant={displayVariant}
+              usage="SALES"
+              value={selectedUomId}
+              options={visibleUomOptions}
+              onChange={(nextUomId, option) => {
+                setSelectedUomState({
+                  variantId: displayVariant.id,
+                  uomId: nextUomId,
+                  uomLabel: option.label,
+                  factor: option.factor,
+                })
+              }}
+            />
+            {pricingError ? (
+              <p className="text-xs text-destructive">{pricingError}</p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {displayVariant && visibleUomOptions.length <= 1 && pricingError ? (
+          <p className="text-xs text-destructive">{pricingError}</p>
+        ) : null}
+
         {/* ── Quantity picker ─────────────────────── */}
-        {!displayOutOfStock && (
+        {activeVariants.length > 0 && !displayOutOfStock && (
           <div className="space-y-2">
             <p className="text-sm font-medium text-foreground">Quantity</p>
             <div className="flex items-center gap-3">
@@ -308,7 +520,7 @@ function VariantPickerDialogContent({
               </button>
               {displayVariant && qty > 1 && (
                 <span className="ml-2 text-sm text-muted-foreground">
-                  = {formatCurrency(displayVariant.sellingPrice * qty)}
+                  = {formatCurrency((resolvedUnitPrice ?? selectedUnitPrice(displayVariant, selectedFactor)) * qty)}
                 </span>
               )}
             </div>
@@ -322,10 +534,24 @@ function VariantPickerDialogContent({
         </Button>
         <Button
           type="button"
-          disabled={displayOutOfStock}
+          disabled={
+            activeVariants.length === 0 ||
+            displayOutOfStock ||
+            isLoadingProductPriceListItems ||
+            isResolvingPricedUoms ||
+            isResolvingPrice ||
+            !!pricingError ||
+            resolvedUnitPrice === null
+          }
           onClick={() => {
             if (displayVariant) {
-              for (let i = 0; i < qty; i++) onConfirm(displayVariant)
+              onConfirm({
+                variant: displayVariant,
+                quantity: qty,
+                uomId: selectedUomId,
+                uomLabel: selectedUomLabel,
+                unitPrice: resolvedUnitPrice ?? selectedUnitPrice(displayVariant, selectedFactor),
+              })
             }
           }}
         >
@@ -334,6 +560,10 @@ function VariantPickerDialogContent({
       </DialogFooter>
     </>
   )
+}
+
+function selectedUnitPrice(variant: ProductVariant, factor: number) {
+  return Number((variant.sellingPrice * factor).toFixed(2))
 }
 
 // CSS color lookup for labels without mock swatches

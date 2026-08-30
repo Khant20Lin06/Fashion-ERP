@@ -37,6 +37,9 @@ export type PayrollComponent = {
   percentage: string | null
   isTaxable: boolean
   isActive: boolean
+  assignmentCount: number
+  historyCount: number
+  canDelete: boolean
   createdAt: string
   updatedAt: string
 }

@@ -8,9 +8,12 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { formatNumber, formatRelativeTime } from "@/lib/format"
 import { useGoodsReceipts } from "../hooks/useGoodsReceipt"
 
-/** List of confirmed Goods Receipt Notes. */
+/** List of the latest confirmed Goods Receipt Notes. */
 export function GoodsReceiptList() {
   const { data, isLoading, isError, refetch } = useGoodsReceipts()
+  const recentReceipts = [...(data ?? [])]
+    .sort((a, b) => new Date(b.createdAt ?? b.receivedAt).getTime() - new Date(a.createdAt ?? a.receivedAt).getTime())
+    .slice(0, 5)
 
   if (isLoading) {
     return (
@@ -24,13 +27,13 @@ export function GoodsReceiptList() {
 
   if (isError) return <ErrorState message="Couldn't load goods receipts." onRetry={refetch} />
 
-  if (!data || data.length === 0) {
+  if (recentReceipts.length === 0) {
     return <EmptyState title="No goods receipts yet" description="Confirmed receipts will appear here." />
   }
 
   return (
     <div className="flex flex-col gap-3">
-      {data.map((receipt) => {
+      {recentReceipts.map((receipt) => {
         const totalReceived = receipt.items.reduce((sum, i) => sum + i.receivedQty, 0)
         const totalRejected = receipt.items.reduce((sum, i) => sum + i.rejectedQty, 0)
         return (
@@ -39,13 +42,16 @@ export function GoodsReceiptList() {
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <p className="font-mono text-sm font-medium">{receipt.reference}</p>
-                  <Badge>{receipt.status === "confirmed" ? "Confirmed" : "Draft"}</Badge>
+                  <Badge>Confirmed</Badge>
                 </div>
                 <p className="text-sm">
                   {receipt.poNumber} · {receipt.supplierName} · {receipt.warehouseName}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {receipt.receivedBy} · {formatRelativeTime(receipt.receivedAt)}
+                  {receipt.receivedBy} · confirmed {formatRelativeTime(receipt.createdAt ?? receipt.receivedAt)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Receipt date: {new Date(receipt.receivedAt).toLocaleDateString()}
                 </p>
               </div>
               <div className="text-right text-sm">

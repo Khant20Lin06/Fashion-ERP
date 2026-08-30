@@ -16,6 +16,7 @@ import {
   InputGroupAddon,
 } from "@/components/ui/input-group"
 import { SearchIcon, CheckIcon } from "lucide-react"
+import { buildNativeScrollbarClassName } from "./native-scrollbar.classes"
 
 function Command({
   className,
@@ -91,14 +92,18 @@ function CommandInput({
 }
 
 function CommandList({
+  hideScrollbar = true,
   className,
   ...props
-}: React.ComponentProps<typeof CommandPrimitive.List>) {
+}: React.ComponentProps<typeof CommandPrimitive.List> & {
+  hideScrollbar?: boolean
+}) {
   return (
     <CommandPrimitive.List
       data-slot="command-list"
       className={cn(
-        "no-scrollbar max-h-72 scroll-py-1 overflow-x-hidden overflow-y-auto outline-none",
+        buildNativeScrollbarClassName("max-h-72 scroll-py-1 overflow-x-hidden outline-none"),
+        hideScrollbar && "no-scrollbar",
         className
       )}
       {...props}

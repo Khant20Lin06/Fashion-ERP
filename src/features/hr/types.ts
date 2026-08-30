@@ -2,32 +2,53 @@
 
 export type Gender = "male" | "female" | "other"
 export type EmploymentType = "full_time" | "part_time" | "contract" | "intern"
-export type EmployeeStatus = "active" | "on_leave" | "suspended" | "terminated"
+export type EmployeeStatus = "active" | "inactive" | "terminated"
 
 export type Employee = {
   id: string
+  userId?: string
+  assignmentId?: string
   employeeCode: string
   name: string
   photoUrl?: string
-  gender: Gender
+  gender?: Gender
   dateOfBirth: string
   phone: string
   email: string
   address: string
   departmentId: string
   departmentName: string
+  designationId?: string
   designation: string
   branchId: string
   branchName: string
-  employmentType: EmploymentType
   joiningDate: string
+  employmentType?: EmploymentType
   managerId?: string
   managerName?: string
   shiftId?: string
   shiftName?: string
-  workingHoursPerWeek: number
-  location: string
+  workingHoursPerWeek?: number
+  location?: string
   status: EmployeeStatus
+}
+
+export type BranchStatus = "active" | "inactive"
+
+export type Branch = {
+  id: string
+  code: string
+  name: string
+  status: BranchStatus
+}
+
+export type DesignationStatus = "active" | "inactive"
+
+export type Designation = {
+  id: string
+  code: string
+  name: string
+  status: DesignationStatus
 }
 
 // --- Organization / Departments ---
@@ -74,6 +95,7 @@ export type AttendanceMetrics = {
   present: number
   absent: number
   late: number
+  summaryDate?: string | null
 }
 
 // --- Shifts ---
@@ -90,7 +112,7 @@ export type Shift = {
 
 // --- Leave ---
 
-export type LeaveType = "annual" | "sick" | "emergency" | "unpaid" | "maternity"
+export type LeaveType = string
 // Backend LeaveRequestStatus (exact enum): PENDING | APPROVED | REJECTED |
 // CANCELLED — a single approval step, no manager-then-HR distinction.
 export type LeaveStatus = "requested" | "approved" | "rejected" | "cancelled"
@@ -101,6 +123,7 @@ export type LeaveRequest = {
   employeeId: string
   employeeName: string
   type: LeaveType
+  typeLabel?: string
   startDate: string
   endDate: string
   days: number
@@ -113,6 +136,7 @@ export type LeaveRequest = {
 export type LeaveBalance = {
   employeeId: string
   type: LeaveType
+  typeLabel?: string
   entitled: number
   used: number
   remaining: number

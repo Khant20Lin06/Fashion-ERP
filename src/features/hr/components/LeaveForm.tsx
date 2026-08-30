@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
@@ -16,50 +17,72 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { useEmployees } from "../hooks/useEmployees"
-import { useCreateLeaveRequest } from "../hooks/useLeave"
+import { useCreateLeaveRequest, useLeaveTypeOptions } from "../hooks/useLeave"
 import { leaveRequestFormSchema, type LeaveRequestFormValues } from "../schemas/leave.schema"
-import type { LeaveType } from "../types"
 
-const typeOptions: { value: LeaveType; label: string }[] = [
-  { value: "annual", label: "Annual Leave" },
-  { value: "sick", label: "Sick Leave" },
-  { value: "emergency", label: "Emergency Leave" },
-  { value: "unpaid", label: "Unpaid Leave" },
-  { value: "maternity", label: "Maternity Leave" },
-]
+const today = "2026-08-25"
 
-/** Leave Request form — Employee -> Manager Approval -> HR Approval -> Leave Balance Update. */
-export function LeaveForm({ onSubmitted }: { onSubmitted?: () => void }) {
+/** Leave Request form - submit against the live leave-types catalog. */
+export function LeaveForm({
+  onSubmitted,
+  fixedEmployeeId,
+  fixedEmployeeName,
+}: {
+  onSubmitted?: () => void
+  fixedEmployeeId?: string
+  fixedEmployeeName?: string
+}) {
   const { data: employees } = useEmployees()
+  const { data: leaveTypeOptions, isLoading: leaveTypesLoading, isError: leaveTypesError } = useLeaveTypeOptions()
   const createLeave = useCreateLeaveRequest()
+  const resolvedEmployeeName =
+    fixedEmployeeName ?? employees?.find((employee) => employee.id === fixedEmployeeId)?.name ?? ""
 
   const form = useForm<LeaveRequestFormValues>({
     resolver: zodResolver(leaveRequestFormSchema),
     defaultValues: {
-      employeeId: "",
-      type: "annual",
-      startDate: new Date().toISOString().slice(0, 10),
-      endDate: new Date().toISOString().slice(0, 10),
+      employeeId: fixedEmployeeId ?? "",
+      type: "",
+      startDate: today,
+      endDate: today,
       reason: "",
       attachmentFilename: "",
     },
   })
 
+  useEffect(() => {
+    if (form.getValues("type")) return
+    const firstType = leaveTypeOptions?.[0]?.code
+    if (firstType) {
+      form.setValue("type", firstType, { shouldValidate: true })
+    }
+  }, [form, leaveTypeOptions])
+
+  useEffect(() => {
+    form.setValue("employeeId", fixedEmployeeId ?? "", { shouldValidate: !!fixedEmployeeId })
+  }, [fixedEmployeeId, form])
+
+  function resetForm() {
+    form.reset({
+      employeeId: fixedEmployeeId ?? "",
+      type: leaveTypeOptions?.[0]?.code ?? "",
+      startDate: today,
+      endDate: today,
+      reason: "",
+      attachmentFilename: "",
+    })
+  }
+
   function onSubmit(values: LeaveRequestFormValues) {
     createLeave.mutate(values, {
       onSuccess: () => {
-        form.reset({
-          employeeId: "",
-          type: "annual",
-          startDate: new Date().toISOString().slice(0, 10),
-          endDate: new Date().toISOString().slice(0, 10),
-          reason: "",
-          attachmentFilename: "",
-        })
+        resetForm()
         onSubmitted?.()
       },
     })
   }
+
+  const noLeaveTypesConfigured = !leaveTypesLoading && !leaveTypesError && (leaveTypeOptions?.length ?? 0) === 0
 
   return (
     <Form {...form}>
@@ -75,20 +98,26 @@ export function LeaveForm({ onSubmitted }: { onSubmitted?: () => void }) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Employee</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  {fixedEmployeeId ? (
                     <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select employee" />
-                      </SelectTrigger>
+                      <Input value={resolvedEmployeeName} disabled readOnly />
                     </FormControl>
-                    <SelectContent>
-                      {(employees ?? []).map((e) => (
-                        <SelectItem key={e.id} value={e.id}>
-                          {e.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  ) : (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select employee" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {(employees ?? []).map((employee) => (
+                          <SelectItem key={employee.id} value={employee.id}>
+                            {employee.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -99,20 +128,27 @@ export function LeaveForm({ onSubmitted }: { onSubmitted?: () => void }) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Leave Type</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select value={field.value} onValueChange={field.onChange} disabled={leaveTypesLoading || noLeaveTypesConfigured}>
                     <FormControl>
                       <SelectTrigger className="w-full">
-                        <SelectValue />
+                        <SelectValue placeholder={leaveTypesLoading ? "Loading leave types..." : "Select leave type"} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {typeOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
+                      {(leaveTypeOptions ?? []).map((option) => (
+                        <SelectItem key={option.code} value={option.code}>
                           {option.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {leaveTypesError ? (
+                    <p className="text-xs text-destructive">Couldn't load leave types.</p>
+                  ) : noLeaveTypesConfigured ? (
+                    <p className="text-xs text-destructive">
+                      No active leave types are configured. Ask an admin to create or activate a leave type first.
+                    </p>
+                  ) : null}
                   <FormMessage />
                 </FormItem>
               )}
@@ -150,7 +186,7 @@ export function LeaveForm({ onSubmitted }: { onSubmitted?: () => void }) {
                 <FormItem className="sm:col-span-2">
                   <FormLabel>Reason</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Reason for leave…" rows={2} {...field} />
+                    <Textarea placeholder="Reason for leave..." rows={2} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -163,7 +199,7 @@ export function LeaveForm({ onSubmitted }: { onSubmitted?: () => void }) {
                 <FormItem className="sm:col-span-2">
                   <FormLabel>Attachment (optional)</FormLabel>
                   <FormControl>
-                    <Input type="file" onChange={(e) => field.onChange(e.target.files?.[0]?.name ?? "")} />
+                    <Input type="file" onChange={(event) => field.onChange(event.target.files?.[0]?.name ?? "")} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -173,7 +209,7 @@ export function LeaveForm({ onSubmitted }: { onSubmitted?: () => void }) {
         </Card>
 
         <div className="flex justify-end">
-          <Button type="submit" disabled={createLeave.isPending}>
+          <Button type="submit" disabled={createLeave.isPending || leaveTypesLoading || noLeaveTypesConfigured}>
             Submit Request
           </Button>
         </div>

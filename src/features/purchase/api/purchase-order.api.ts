@@ -31,6 +31,92 @@ function computeLineAmount(quantity: number, unitCost: number, discount: number,
 }
 
 // --- Purchase Requests ---
+
+type BackendPurchaseRequestStatus =
+  | "DRAFT"
+  | "SUBMITTED"
+  | "APPROVED"
+  | "REJECTED"
+  | "CONVERTED"
+
+type BackendPurchaseRequestItem = {
+  id: string
+  purchaseRequestId: string
+  productVariantId: string
+  quantity: number
+  reason: string
+  productNameSnapshot: string
+  skuSnapshot: string
+}
+
+type BackendPurchaseRequest = {
+  id: string
+  requestNumber: string
+  companyId: string
+  branchId: string | null
+  department: string
+  requesterName: string
+  requiredDate: string
+  status: BackendPurchaseRequestStatus
+  notes: string | null
+  createdBy: string | null
+  updatedBy: string | null
+  createdAt: string
+  updatedAt: string
+  itemCount?: number
+  items?: BackendPurchaseRequestItem[]
+}
+
+function mapRequestStatusFromBackend(status: BackendPurchaseRequestStatus): PurchaseRequest["status"] {
+  switch (status) {
+    case "SUBMITTED":
+      return "submitted"
+    case "APPROVED":
+      return "approved"
+    case "REJECTED":
+      return "rejected"
+    case "CONVERTED":
+      return "converted"
+    default:
+      return "draft"
+  }
+}
+
+function mapRequestStatusToBackend(status: PurchaseRequest["status"]): BackendPurchaseRequestStatus {
+  switch (status) {
+    case "submitted":
+      return "SUBMITTED"
+    case "approved":
+      return "APPROVED"
+    case "rejected":
+      return "REJECTED"
+    case "converted":
+      return "CONVERTED"
+    default:
+      return "DRAFT"
+  }
+}
+
+function mapBackendToPurchaseRequest(request: BackendPurchaseRequest): PurchaseRequest {
+  return {
+    id: request.id,
+    reference: request.requestNumber,
+    department: request.department,
+    requester: request.requesterName,
+    requiredDate: request.requiredDate,
+    status: mapRequestStatusFromBackend(request.status),
+    items: (request.items ?? []).map((item) => ({
+      id: item.id,
+      productId: item.productVariantId,
+      productName: item.productNameSnapshot,
+      sku: item.skuSnapshot,
+      quantity: item.quantity,
+      reason: item.reason,
+    })),
+    notes: request.notes ?? undefined,
+    createdAt: request.createdAt,
+  }
+}
 // No backend module exists for a pre-PO "purchase request"/approval
 // workflow in Phase 00-31 (purchase-orders.controller.ts's own comment
 // confirms approval workflow is explicitly out of scope) — mock-only until
@@ -38,7 +124,11 @@ function computeLineAmount(quantity: number, unitCost: number, discount: number,
 
 export async function fetchPurchaseRequests(): Promise<PurchaseRequest[]> {
   if (USE_MOCK) return delay(mockPurchaseRequests)
-  return []
+  const companyId = await resolveCompanyId()
+  const rows = await fetchAllPages<BackendPurchaseRequest>("/purchase-requests", {
+    companyId,
+  })
+  return rows.map(mapBackendToPurchaseRequest)
 }
 
 export async function createPurchaseRequest(values: PurchaseRequestFormValues): Promise<PurchaseRequest> {
@@ -55,7 +145,20 @@ export async function createPurchaseRequest(values: PurchaseRequestFormValues): 
       createdAt: new Date().toISOString(),
     })
   }
-  throw new Error("Purchase requests are not available yet.")
+  const companyId = await resolveCompanyId()
+  const { data } = await apiClient.post<BackendPurchaseRequest>("/purchase-requests", {
+    companyId,
+    department: values.department,
+    requesterName: values.requester,
+    requiredDate: values.requiredDate,
+    notes: values.notes || undefined,
+    items: values.items.map((item) => ({
+      productVariantId: item.productId,
+      quantity: item.quantity,
+      reason: item.reason,
+    })),
+  })
+  return mapBackendToPurchaseRequest(data)
 }
 
 export async function updatePurchaseRequestStatus(id: string, status: PurchaseRequest["status"]): Promise<PurchaseRequest> {
@@ -64,24 +167,50 @@ export async function updatePurchaseRequestStatus(id: string, status: PurchaseRe
     if (!existing) throw new Error("Purchase request not found")
     return delay({ ...existing, status })
   }
-  throw new Error("Purchase requests are not available yet.")
+  const companyId = await resolveCompanyId()
+  const { data } = await apiClient.post<BackendPurchaseRequest>(
+    `/purchase-requests/${id}/status`,
+    { status: mapRequestStatusToBackend(status) },
+    { params: { companyId } },
+  )
+  return mapBackendToPurchaseRequest(data)
+}
+
+export async function fetchPurchaseRequestById(id: string): Promise<PurchaseRequest | undefined> {
+  if (USE_MOCK) return delay(mockPurchaseRequests.find((request) => request.id === id))
+  const companyId = await resolveCompanyId()
+  try {
+    const { data } = await apiClient.get<BackendPurchaseRequest>(`/purchase-requests/${id}`, {
+      params: { companyId },
+    })
+    return mapBackendToPurchaseRequest(data)
+  } catch {
+    return undefined
+  }
 }
 
 // --- Purchase Orders ---
 // Real controller: @Controller('purchase-orders') — NOT /purchase/orders.
-// Phase 13 is a deliberately locked 3-state lifecycle (DRAFT/CONFIRMED/
-// CANCELLED, see PurchaseOrderStatus on the backend) with no generic status
-// PATCH — only POST :id/confirm and POST :id/cancel. The richer frontend
-// status set (pending_approval/partially_received/received) has no backend
-// equivalent yet and is mapped down to the closest real state.
+// Enterprise backend now exposes draft/submitted/approved/rejected/closed
+// plus the legacy CONFIRMED alias used by older clients.
 
-type BackendPurchaseOrderStatus = "DRAFT" | "CONFIRMED" | "CANCELLED"
+type BackendPurchaseOrderStatus =
+  | "DRAFT"
+  | "SUBMITTED"
+  | "APPROVED"
+  | "CONFIRMED"
+  | "REJECTED"
+  | "CLOSED"
+  | "CANCELLED"
 
 type BackendPurchaseOrderItem = {
   id: string
   purchaseOrderId: string
   productVariantId: string
   quantity: number
+  uomId?: string | null
+  uomCodeSnapshot?: string | null
+  uomNameSnapshot?: string | null
   unitCostSnapshot: string
   discountSnapshot: string
   taxSnapshot: string
@@ -94,6 +223,7 @@ type BackendPurchaseOrder = {
   id: string
   purchaseOrderNumber: string
   supplierId: string
+  sourceSupplierQuotationId: string | null
   companyId: string
   branchId: string | null
   warehouseId: string | null
@@ -112,6 +242,15 @@ type BackendPurchaseOrder = {
   updatedAt: string
   itemCount?: number
   items?: BackendPurchaseOrderItem[]
+}
+
+type PaginatedResponse<T> = {
+  data?: T[]
+  meta?: {
+    page?: number
+    limit?: number
+    total?: number
+  } | null
 }
 
 type BackendAnalyticsGoodsReceiptItem = {
@@ -140,11 +279,38 @@ type BackendAnalyticsPayment = {
   allocations?: BackendPaymentAllocation[]
 }
 
+type BackendPurchaseInvoiceSummary = {
+  id: string
+  balanceAmount: string
+}
+
 type BackendJoinSupplier = {
   id: string
   name: string
   displayName: string | null
   paymentTermId: string | null
+}
+
+async function fetchAllPages<T>(path: string, params: Record<string, string | number | undefined>): Promise<T[]> {
+  const limit = 100
+  let page = 1
+  let total = Number.POSITIVE_INFINITY
+  const rows: T[] = []
+
+  while (rows.length < total) {
+    const { data } = await apiClient.get<PaginatedResponse<T>>(path, {
+      params: { ...params, page, limit },
+    })
+    const batch = data.data ?? []
+    rows.push(...batch)
+
+    const reportedTotal = data.meta?.total
+    total = typeof reportedTotal === "number" ? reportedTotal : batch.length < limit ? rows.length : rows.length + limit
+    if (batch.length < limit) break
+    page += 1
+  }
+
+  return rows
 }
 
 type BackendPaymentTerm = {
@@ -155,19 +321,30 @@ type BackendPaymentTerm = {
 function mapPoStatus(status: BackendPurchaseOrderStatus): PurchaseOrderStatus {
   const map: Record<BackendPurchaseOrderStatus, PurchaseOrderStatus> = {
     DRAFT: "draft",
+    SUBMITTED: "pending_approval",
+    APPROVED: "approved",
     CONFIRMED: "approved",
+    REJECTED: "rejected",
+    CLOSED: "closed",
     CANCELLED: "cancelled",
   }
   return map[status]
 }
 
-function mapItem(bi: BackendPurchaseOrderItem): PurchaseLineItem {
+function mapItem(
+  bi: BackendPurchaseOrderItem,
+  handledByPurchaseOrderItem: Map<string, number> = new Map(),
+): PurchaseLineItem {
+  const handledQty = handledByPurchaseOrderItem.get(bi.id) ?? 0
   return {
     id: bi.id,
     productId: bi.productVariantId,
     productName: bi.productNameSnapshot,
     sku: bi.skuSnapshot,
+    uomId: bi.uomId ?? undefined,
+    uomLabel: bi.uomNameSnapshot ?? bi.uomCodeSnapshot ?? undefined,
     quantity: bi.quantity,
+    remainingQty: Math.max(0, bi.quantity - handledQty),
     unitCost: parseFloat(bi.unitCostSnapshot) || 0,
     discount: parseFloat(bi.discountSnapshot) || 0,
     tax: parseFloat(bi.taxSnapshot) || 0,
@@ -195,11 +372,14 @@ function formatTrendLabel(date: Date) {
   return new Intl.DateTimeFormat("en-US", { month: "short", year: "2-digit" }).format(date)
 }
 
-function buildReceivedByPurchaseOrderItem(receipts: BackendAnalyticsGoodsReceipt[]) {
+function buildHandledByPurchaseOrderItem(receipts: BackendAnalyticsGoodsReceipt[]) {
   const totals = new Map<string, number>()
   for (const receipt of receipts) {
     for (const item of receipt.items ?? []) {
-      totals.set(item.purchaseOrderItemId, (totals.get(item.purchaseOrderItemId) ?? 0) + item.receivedQuantity)
+      totals.set(
+        item.purchaseOrderItemId,
+        (totals.get(item.purchaseOrderItemId) ?? 0) + item.receivedQuantity + item.rejectedQuantity,
+      )
     }
   }
   return totals
@@ -222,28 +402,27 @@ function buildPaidByPurchaseOrder(payments: BackendAnalyticsPayment[]) {
 function resolveDisplayStatus(
   status: BackendPurchaseOrderStatus,
   items: BackendPurchaseOrderItem[] = [],
-  receivedByPurchaseOrderItem: Map<string, number> = new Map(),
+  handledByPurchaseOrderItem: Map<string, number> = new Map(),
 ): PurchaseOrderStatus {
   const baseStatus = mapPoStatus(status)
-  if (status !== "CONFIRMED") return baseStatus
+  if (!["APPROVED", "CONFIRMED"].includes(status)) return baseStatus
 
   const orderedQuantity = items.reduce((sum, item) => sum + item.quantity, 0)
-  const receivedQuantity = items.reduce(
-    (sum, item) => sum + (receivedByPurchaseOrderItem.get(item.id) ?? 0),
+  const handledQuantity = items.reduce(
+    (sum, item) => sum + (handledByPurchaseOrderItem.get(item.id) ?? 0),
     0,
   )
 
-  if (orderedQuantity === 0 || receivedQuantity <= 0) return baseStatus
-  if (receivedQuantity >= orderedQuantity) return "received"
+  if (orderedQuantity === 0 || handledQuantity <= 0) return baseStatus
+  if (handledQuantity >= orderedQuantity) return "received"
   return "partially_received"
 }
 
 async function fetchPurchaseAnalyticsReceipts(companyId: string): Promise<BackendAnalyticsGoodsReceipt[]> {
   try {
-    const { data } = await apiClient.get<{ data: BackendAnalyticsGoodsReceipt[]; meta: unknown }>("/goods-receipts", {
-      params: { companyId, limit: 100 },
+    return await fetchAllPages<BackendAnalyticsGoodsReceipt>("/goods-receipts", {
+      companyId,
     })
-    return data.data ?? []
   } catch {
     return []
   }
@@ -251,10 +430,20 @@ async function fetchPurchaseAnalyticsReceipts(companyId: string): Promise<Backen
 
 async function fetchPurchaseAnalyticsPayments(companyId: string): Promise<BackendAnalyticsPayment[]> {
   try {
-    const { data } = await apiClient.get<{ data: BackendAnalyticsPayment[]; meta: unknown }>("/payments", {
-      params: { companyId, direction: "PAYMENT", limit: 100 },
+    return await fetchAllPages<BackendAnalyticsPayment>("/payments", {
+      companyId,
+      direction: "PAYMENT",
     })
-    return data.data ?? []
+  } catch {
+    return []
+  }
+}
+
+async function fetchPurchaseInvoiceSummaries(companyId: string): Promise<BackendPurchaseInvoiceSummary[]> {
+  try {
+    return await fetchAllPages<BackendPurchaseInvoiceSummary>("/purchase-invoices", {
+      companyId,
+    })
   } catch {
     return []
   }
@@ -274,22 +463,25 @@ async function fetchPaymentTermsById(companyId: string): Promise<Map<string, str
 function mapBackendToPurchaseOrder(
   bp: BackendPurchaseOrder,
   suppliers: Array<{ id: string; name: string; contactPerson: string; paymentTerms: string }> = [],
-  receivedByPurchaseOrderItem: Map<string, number> = new Map()
+  handledByPurchaseOrderItem: Map<string, number> = new Map()
 ): PurchaseOrder {
   const supplier = suppliers.find((entry) => entry.id === bp.supplierId)
   return {
     id: bp.id,
     poNumber: bp.purchaseOrderNumber,
     supplierId: bp.supplierId,
+    sourceSupplierQuotationId: bp.sourceSupplierQuotationId,
     supplierName: supplier?.name ?? "",
     // Not returned by this endpoint — no backend field for either.
     contact: supplier?.contactPerson ?? "",
     paymentTerms: supplier?.paymentTerms ?? "",
     date: bp.transactionDate,
     deliveryDate: bp.expectedDeliveryDate ?? "",
-    status: resolveDisplayStatus(bp.status, bp.items ?? [], receivedByPurchaseOrderItem),
+    branchId: bp.branchId,
+    warehouseId: bp.warehouseId,
+    status: resolveDisplayStatus(bp.status, bp.items ?? [], handledByPurchaseOrderItem),
     itemCount: bp.itemCount ?? bp.items?.length ?? 0,
-    items: (bp.items ?? []).map(mapItem),
+    items: (bp.items ?? []).map((item) => mapItem(item, handledByPurchaseOrderItem)),
     subtotal: parseFloat(bp.subtotal) || 0,
     taxTotal: parseFloat(bp.taxAmount) || 0,
     discountTotal: parseFloat(bp.discountAmount) || 0,
@@ -300,13 +492,13 @@ function mapBackendToPurchaseOrder(
 
 async function fetchSuppliersForJoin(companyId: string): Promise<Array<{ id: string; name: string; contactPerson: string; paymentTerms: string }>> {
   try {
-    const [supplierResponse, paymentTermsById] = await Promise.all([
-      apiClient.get<{ data: BackendJoinSupplier[]; meta: unknown }>("/suppliers", {
-        params: { companyId, limit: 100 },
+    const [suppliers, paymentTermsById] = await Promise.all([
+      fetchAllPages<BackendJoinSupplier>("/suppliers", {
+        companyId,
       }),
       fetchPaymentTermsById(companyId),
     ])
-    return (supplierResponse.data.data ?? []).map((supplier) => ({
+    return suppliers.map((supplier) => ({
       id: supplier.id,
       name: supplier.name,
       contactPerson: supplier.displayName ?? "",
@@ -320,16 +512,16 @@ async function fetchSuppliersForJoin(companyId: string): Promise<Array<{ id: str
 export async function fetchPurchaseOrders(): Promise<PurchaseOrder[]> {
   if (USE_MOCK) return delay(mockPurchaseOrders)
   const companyId = await resolveCompanyId()
-  const [poRes, suppliers, receipts] = await Promise.all([
-    apiClient.get<{ data: BackendPurchaseOrder[]; meta: unknown }>("/purchase-orders", {
-      params: { companyId, limit: 100 },
+  const [purchaseOrders, suppliers, receipts] = await Promise.all([
+    fetchAllPages<BackendPurchaseOrder>("/purchase-orders", {
+      companyId,
     }),
     fetchSuppliersForJoin(companyId),
     fetchPurchaseAnalyticsReceipts(companyId),
   ])
-  const receivedByPurchaseOrderItem = buildReceivedByPurchaseOrderItem(receipts)
-  return (poRes.data.data ?? []).map((bp) =>
-    mapBackendToPurchaseOrder(bp, suppliers, receivedByPurchaseOrderItem),
+  const handledByPurchaseOrderItem = buildHandledByPurchaseOrderItem(receipts)
+  return purchaseOrders.map((bp) =>
+    mapBackendToPurchaseOrder(bp, suppliers, handledByPurchaseOrderItem),
   )
 }
 
@@ -345,7 +537,7 @@ export async function fetchPurchaseOrderById(id: string): Promise<PurchaseOrder 
     return mapBackendToPurchaseOrder(
       poRes.data,
       suppliers,
-      buildReceivedByPurchaseOrderItem(receipts),
+      buildHandledByPurchaseOrderItem(receipts),
     )
   } catch {
     return undefined
@@ -388,6 +580,7 @@ export async function createPurchaseOrder(values: PurchaseOrderFormValues): Prom
     companyId,
     supplierId: values.supplierId,
     paymentTermId: values.paymentTermId || undefined,
+    sourceSupplierQuotationId: values.sourceSupplierQuotationId || undefined,
     expectedDeliveryDate: values.deliveryDate || undefined,
     currency,
     items: values.items.map((item) => ({
@@ -395,6 +588,7 @@ export async function createPurchaseOrder(values: PurchaseOrderFormValues): Prom
       // lists variants (not products), since the backend requires
       // productVariantId, not productId.
       productVariantId: item.productId,
+      uomId: item.uomId || undefined,
       quantity: item.quantity,
       unitCost: item.unitCost.toFixed(2),
       discountAmount: item.discount ? item.discount.toFixed(2) : undefined,
@@ -405,10 +599,6 @@ export async function createPurchaseOrder(values: PurchaseOrderFormValues): Prom
   return mapBackendToPurchaseOrder(data, suppliers)
 }
 
-/** Real backend has no generic status PATCH — only POST :id/confirm and
- * POST :id/cancel (Phase 13's deliberately locked 3-state lifecycle). Any
- * status other than "approved" (-> confirm) or "cancelled" (-> cancel) has
- * no backend equivalent and is rejected rather than silently no-op'd. */
 export async function updatePurchaseOrderStatus(id: string, status: PurchaseOrderStatus): Promise<PurchaseOrder> {
   if (USE_MOCK) {
     const existing = mockPurchaseOrders.find((o) => o.id === id)
@@ -416,10 +606,39 @@ export async function updatePurchaseOrderStatus(id: string, status: PurchaseOrde
     return delay({ ...existing, status })
   }
   const companyId = await resolveCompanyId()
+  if (status === "pending_approval") {
+    const { data } = await apiClient.request<BackendPurchaseOrder>({
+      url: `/purchase-orders/${id}/submit`,
+      method: "POST",
+      params: { companyId },
+    })
+    const suppliers = await fetchSuppliersForJoin(companyId)
+    return mapBackendToPurchaseOrder(data, suppliers)
+  }
   if (status === "approved") {
     const { data } = await apiClient.request<BackendPurchaseOrder>({
-      url: `/purchase-orders/${id}/confirm`,
+      url: `/purchase-orders/${id}/approve`,
       method: "POST",
+      params: { companyId },
+    })
+    const suppliers = await fetchSuppliersForJoin(companyId)
+    return mapBackendToPurchaseOrder(data, suppliers)
+  }
+  if (status === "rejected") {
+    const { data } = await apiClient.request<BackendPurchaseOrder>({
+      url: `/purchase-orders/${id}/reject`,
+      method: "POST",
+      data: { reason: "Rejected from purchase workspace" },
+      params: { companyId },
+    })
+    const suppliers = await fetchSuppliersForJoin(companyId)
+    return mapBackendToPurchaseOrder(data, suppliers)
+  }
+  if (status === "closed") {
+    const { data } = await apiClient.request<BackendPurchaseOrder>({
+      url: `/purchase-orders/${id}/close`,
+      method: "POST",
+      data: {},
       params: { companyId },
     })
     const suppliers = await fetchSuppliersForJoin(companyId)
@@ -438,8 +657,9 @@ export async function updatePurchaseOrderStatus(id: string, status: PurchaseOrde
 }
 
 // --- Dashboard / Analytics ---
-// No backend KPI/trend/product-cost analytics endpoints exist for purchase
-// in Phase 00-31 — mock-only until real endpoints exist.
+// Purchase KPIs are derived from live purchase orders, receipts, and invoices.
+// Product cost analysis still remains a frontend-derived view because no
+// dedicated backend cost-history analytics endpoint exists yet.
 
 export async function fetchPurchaseKpis(): Promise<PurchaseKpis> {
   if (USE_MOCK) {
@@ -454,15 +674,14 @@ export async function fetchPurchaseKpis(): Promise<PurchaseKpis> {
     return delay({ totalPurchaseValue, pendingOrders, receivedItems, outstandingPayments })
   }
   const companyId = await resolveCompanyId()
-  const [purchaseOrders, receipts, payments] = await Promise.all([
+  const [purchaseOrders, receipts, invoices] = await Promise.all([
     fetchPurchaseOrders(),
     fetchPurchaseAnalyticsReceipts(companyId),
-    fetchPurchaseAnalyticsPayments(companyId),
+    fetchPurchaseInvoiceSummaries(companyId),
   ])
 
   const now = new Date()
-  const receivedByPurchaseOrderItem = buildReceivedByPurchaseOrderItem(receipts)
-  const paidByPurchaseOrder = buildPaidByPurchaseOrder(payments)
+  const handledByPurchaseOrderItem = buildHandledByPurchaseOrderItem(receipts)
 
   const totalPurchaseValue = purchaseOrders
     .filter((order) => isFinancialPurchaseOrder(order.status) && isSameMonth(order.date, now))
@@ -471,11 +690,11 @@ export async function fetchPurchaseKpis(): Promise<PurchaseKpis> {
   const pendingOrders = purchaseOrders.filter((order) => {
     if (!isFinancialPurchaseOrder(order.status)) return false
     const orderedQuantity = order.items.reduce((sum, item) => sum + item.quantity, 0)
-    const receivedQuantity = order.items.reduce(
-      (sum, item) => sum + (receivedByPurchaseOrderItem.get(item.id) ?? 0),
+    const handledQuantity = order.items.reduce(
+      (sum, item) => sum + (handledByPurchaseOrderItem.get(item.id) ?? 0),
       0,
     )
-    return receivedQuantity < orderedQuantity
+    return handledQuantity < orderedQuantity
   }).length
 
   const receivedItems = receipts
@@ -486,9 +705,10 @@ export async function fetchPurchaseKpis(): Promise<PurchaseKpis> {
       0,
     )
 
-  const outstandingPayments = purchaseOrders
-    .filter((order) => isFinancialPurchaseOrder(order.status))
-    .reduce((sum, order) => sum + Math.max(order.grandTotal - (paidByPurchaseOrder.get(order.id) ?? 0), 0), 0)
+  const outstandingPayments = invoices.reduce(
+    (sum, invoice) => sum + (parseFloat(invoice.balanceAmount) || 0),
+    0,
+  )
 
   return { totalPurchaseValue, pendingOrders, receivedItems, outstandingPayments }
 }

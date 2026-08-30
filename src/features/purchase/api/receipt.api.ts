@@ -43,6 +43,37 @@ type BackendGoodsReceipt = {
   items?: BackendGoodsReceiptItem[]
 }
 
+type PaginatedResponse<T> = {
+  data?: T[]
+  meta?: {
+    page?: number
+    limit?: number
+    total?: number
+  } | null
+}
+
+async function fetchAllPages<T>(path: string, params: Record<string, string | number | undefined>): Promise<T[]> {
+  const limit = 100
+  let page = 1
+  let total = Number.POSITIVE_INFINITY
+  const rows: T[] = []
+
+  while (rows.length < total) {
+    const { data } = await apiClient.get<PaginatedResponse<T>>(path, {
+      params: { ...params, page, limit },
+    })
+    const batch = data.data ?? []
+    rows.push(...batch)
+
+    const reportedTotal = data.meta?.total
+    total = typeof reportedTotal === "number" ? reportedTotal : batch.length < limit ? rows.length : rows.length + limit
+    if (batch.length < limit) break
+    page += 1
+  }
+
+  return rows
+}
+
 function mapBackendToGoodsReceipt(
   br: BackendGoodsReceipt,
   purchaseOrders: Array<{ id: string; poNumber: string; supplierId: string; supplierName: string; items: Array<{ id: string; productId: string; productName: string; sku: string; color?: string; size?: string; quantity: number }> }>,
@@ -65,6 +96,7 @@ function mapBackendToGoodsReceipt(
       const poLine = po?.items.find((l) => l.id === it.purchaseOrderItemId)
       return {
         id: it.id,
+        purchaseOrderItemId: it.purchaseOrderItemId,
         productId: it.productVariantId,
         productName: poLine?.productName ?? "",
         sku: poLine?.sku ?? "",
@@ -77,18 +109,19 @@ function mapBackendToGoodsReceipt(
     }),
     receivedBy: br.receivedBy,
     receivedAt: br.receiptDate,
+    createdAt: br.createdAt,
   }
 }
 
 export async function fetchGoodsReceipts(): Promise<GoodsReceipt[]> {
   if (USE_MOCK) return delay(mockGoodsReceipts)
   const companyId = await resolveCompanyId()
-  const [grRes, purchaseOrders, warehouses] = await Promise.all([
-    apiClient.get<{ data: BackendGoodsReceipt[]; meta: unknown }>("/goods-receipts", { params: { companyId } }),
+  const [receipts, purchaseOrders, warehouses] = await Promise.all([
+    fetchAllPages<BackendGoodsReceipt>("/goods-receipts", { companyId }),
     fetchPurchaseOrders(),
     fetchWarehouses(),
   ])
-  return (grRes.data.data ?? []).map((br) => mapBackendToGoodsReceipt(br, purchaseOrders, warehouses))
+  return receipts.map((br) => mapBackendToGoodsReceipt(br, purchaseOrders, warehouses))
 }
 
 export async function createGoodsReceipt(values: GoodsReceiptFormValues): Promise<GoodsReceipt> {
@@ -108,7 +141,7 @@ export async function createGoodsReceipt(values: GoodsReceiptFormValues): Promis
       status: "confirmed",
       items: values.items.map((item, index) => ({ id: `gri-${Date.now()}-${index}`, ...item })),
       receivedBy: "You",
-      receivedAt: new Date().toISOString(),
+      receivedAt: values.receiptDate ? new Date(values.receiptDate).toISOString() : new Date().toISOString(),
     })
   }
   const companyId = await resolveCompanyId()
@@ -116,6 +149,8 @@ export async function createGoodsReceipt(values: GoodsReceiptFormValues): Promis
     companyId,
     purchaseOrderId: values.purchaseOrderId,
     warehouseId: values.warehouseId,
+    receiptDate: values.receiptDate || undefined,
+    notes: values.notes?.trim() ? values.notes.trim() : undefined,
     items: values.items.map((item) => ({
       purchaseOrderItemId: item.purchaseOrderItemId,
       productVariantId: item.productId,

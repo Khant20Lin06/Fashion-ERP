@@ -23,16 +23,16 @@ type EmployeeProfileProps = {
   employee: Employee
 }
 
-/** Employee Profile page: header + Overview/Attendance/Leave/Payroll/Performance/Documents tabs. */
 export function EmployeeProfile({ employee }: EmployeeProfileProps) {
   const { data: attendance } = useAttendanceRecords()
   const { data: leaves } = useLeaveRequests()
   const { data: reviews, isError: reviewsError } = usePerformanceReviews()
   const { data: documents, isLoading: loadingDocuments } = useEmployeeDocuments(employee.id)
 
-  const employeeAttendance = (attendance ?? []).filter((a) => a.employeeId === employee.id)
-  const employeeLeaves = (leaves ?? []).filter((l) => l.employeeId === employee.id)
-  const employeeReviews = (reviews ?? []).filter((r) => r.employeeId === employee.id)
+  const employeeAttendance = (attendance ?? []).filter((record) => record.employeeId === employee.id)
+  const employeeLeaves = (leaves ?? []).filter((leave) => leave.employeeId === employee.id)
+  const employeeReviews = (reviews ?? []).filter((review) => review.employeeId === employee.id)
+  const roleSummary = [employee.designation, employee.departmentName].filter(Boolean).join(" · ") || "Employee"
 
   return (
     <div className="flex flex-col gap-6">
@@ -41,9 +41,7 @@ export function EmployeeProfile({ employee }: EmployeeProfileProps) {
           <EmployeeAvatar name={employee.name} photoUrl={employee.photoUrl} size="lg" />
           <div className="space-y-1">
             <h1 className="text-xl font-semibold tracking-tight">{employee.name}</h1>
-            <p className="text-sm text-muted-foreground">
-              {employee.designation} · {employee.departmentName}
-            </p>
+            <p className="text-sm text-muted-foreground">{roleSummary}</p>
             <Badge className="capitalize">{employee.status.replace("_", " ")}</Badge>
           </div>
         </div>
@@ -71,15 +69,14 @@ export function EmployeeProfile({ employee }: EmployeeProfileProps) {
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <DetailField label="Employee ID" value={employee.employeeCode} />
-              <DetailField label="Phone" value={employee.phone} />
-              <DetailField label="Email" value={employee.email} />
-              <DetailField label="Address" value={employee.address} />
-              <DetailField label="Branch" value={employee.branchName} />
-              <DetailField label="Employment Type" value={employee.employmentType.replace("_", " ")} className="capitalize" />
+              <DetailField label="Department" value={employee.departmentName || "—"} />
+              <DetailField label="Designation" value={employee.designation || "—"} />
+              <DetailField label="Branch" value={employee.branchName || "—"} />
               <DetailField label="Joining Date" value={new Date(employee.joiningDate).toLocaleDateString()} />
-              <DetailField label="Manager" value={employee.managerName ?? "—"} />
-              <DetailField label="Shift" value={employee.shiftName ?? "—"} />
-              <DetailField label="Working Hours" value={`${employee.workingHoursPerWeek} hrs/week`} />
+              <DetailField label="Status" value={employee.status.replace("_", " ")} className="capitalize" />
+              <DetailField label="Phone" value={employee.phone || "—"} />
+              <DetailField label="Email" value={employee.email || "—"} />
+              <DetailField label="Address" value={employee.address || "—"} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -121,7 +118,7 @@ export function EmployeeProfile({ employee }: EmployeeProfileProps) {
                 employeeLeaves.map((leave) => (
                   <div key={leave.id} className="flex items-center justify-between rounded-md border p-3 text-sm">
                     <div>
-                      <p className="font-medium capitalize">{leave.type} Leave</p>
+                      <p className="font-medium">{leave.typeLabel ?? leave.type}</p>
                       <p className="text-xs text-muted-foreground">
                         {new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()} ({leave.days}d)
                       </p>
@@ -175,13 +172,13 @@ export function EmployeeProfile({ employee }: EmployeeProfileProps) {
               ) : !documents || documents.length === 0 ? (
                 <EmptyState title="No documents" description="Uploaded documents will appear here." />
               ) : (
-                documents.map((doc) => (
-                  <div key={doc.id} className="flex items-center justify-between rounded-md border p-3 text-sm">
+                documents.map((document) => (
+                  <div key={document.id} className="flex items-center justify-between rounded-md border p-3 text-sm">
                     <div>
-                      <p className="font-medium">{doc.filename}</p>
-                      <p className="text-xs text-muted-foreground">{doc.category}</p>
+                      <p className="font-medium">{document.filename}</p>
+                      <p className="text-xs text-muted-foreground">{document.category}</p>
                     </div>
-                    <span className="text-xs text-muted-foreground">{formatRelativeTime(doc.uploadedAt)}</span>
+                    <span className="text-xs text-muted-foreground">{formatRelativeTime(document.uploadedAt)}</span>
                   </div>
                 ))
               )}

@@ -3,11 +3,13 @@ import { toast } from "sonner"
 import { toastApiError } from "@/lib/api/errors"
 import { createGoodsReceipt, fetchGoodsReceipts } from "../api/receipt.api"
 import type { GoodsReceiptFormValues } from "../schemas/receipt.schema"
+import { livePurchaseQueryOptions } from "./live-query-options"
 
 export function useGoodsReceipts() {
   return useQuery({
     queryKey: ["goods-receipts"],
     queryFn: fetchGoodsReceipts,
+    ...livePurchaseQueryOptions,
   })
 }
 

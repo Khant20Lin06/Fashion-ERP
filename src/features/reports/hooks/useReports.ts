@@ -37,7 +37,7 @@ import {
   fetchMarginAnalysis,
   fetchProfitTrend,
 } from "../api/finance-report.api"
-import type { Granularity } from "../types"
+import type { FinancialReportFilters, Granularity } from "../types"
 
 // --- Sales Reports ---
 
@@ -153,8 +153,11 @@ export function useColorAnalysis() {
 
 // --- Financial Reports ---
 
-export function useFinancialOverview() {
-  return useQuery({ queryKey: ["reports", "finance", "overview"], queryFn: fetchFinancialOverview })
+export function useFinancialOverview(filters?: FinancialReportFilters) {
+  return useQuery({
+    queryKey: ["reports", "finance", "overview", filters?.branchId ?? "", filters?.fromDate ?? "", filters?.toDate ?? ""],
+    queryFn: () => fetchFinancialOverview(filters),
+  })
 }
 
 export function useProfitTrend() {

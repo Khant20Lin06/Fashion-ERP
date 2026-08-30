@@ -77,6 +77,7 @@ export function SupplierDetail({ supplier }: SupplierDetailProps) {
               <DetailField label="Contact Person" value={supplier.contactPerson || "-"} />
               <DetailField label="Phone" value={supplier.phone || "-"} />
               <DetailField label="Email" value={supplier.email || "-"} />
+              <DetailField label="Country" value={supplier.country || "-"} />
               <DetailField label="Payment Terms" value={supplier.paymentTerms || "-"} />
               <DetailField label="Credit Days" value={`${supplier.creditDays}`} />
               <DetailField label="Opening Balance" value={formatCurrency(supplier.openingBalance ?? 0)} />
@@ -174,7 +175,18 @@ export function SupplierDetail({ supplier }: SupplierDetailProps) {
               {loadingPerformance ? (
                 Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-20 w-full" />)
               ) : !performance ? (
-                <EmptyState title="No performance data" description="Performance metrics will appear here once available." />
+                <>
+                  <div className="sm:col-span-2 lg:col-span-4">
+                    <EmptyState
+                      title="Detailed supplier performance isn't tracked yet"
+                      description="Live purchase volume is shown below. Delivery time, order accuracy, and quality rating need dedicated backend tracking before they can be reported."
+                    />
+                  </div>
+                  <DetailField label="Avg. Delivery Time" value="Not tracked yet" />
+                  <DetailField label="Order Accuracy" value="Not tracked yet" />
+                  <DetailField label="Quality Rating" value="Not tracked yet" />
+                  <DetailField label="Purchase Volume" value={formatCurrency(supplier.totalPurchase)} />
+                </>
               ) : (
                 <>
                   <DetailField label="Avg. Delivery Time" value={`${performance.avgDeliveryDays} days`} />

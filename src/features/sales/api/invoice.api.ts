@@ -93,6 +93,9 @@ type BackendSaleItem = {
   saleId: string
   productVariantId: string
   quantity: number
+  uomId?: string | null
+  uomCodeSnapshot?: string | null
+  uomNameSnapshot?: string | null
   unitPriceSnapshot: string
   discountSnapshot: string
   taxSnapshot: string
@@ -248,6 +251,8 @@ function mapBackendSaleToInvoice(
       productId: item.productVariantId,
       productName: item.productNameSnapshot || item.productVariantId,
       sku: item.skuSnapshot || item.productVariantId,
+      uomId: item.uomId ?? undefined,
+      uomLabel: item.uomNameSnapshot ?? item.uomCodeSnapshot ?? undefined,
       quantity: item.quantity,
       price: Number(item.unitPriceSnapshot || 0),
       discount: Number(item.discountSnapshot || 0),
@@ -321,6 +326,7 @@ export async function fetchInvoiceById(id: string): Promise<SalesInvoice | undef
 
 export type CheckoutPayload = {
   customerId?: string
+  priceListId?: string
   items: CartItem[]
   paymentMethod: PaymentMethod
   amountTendered: number
@@ -344,6 +350,8 @@ export async function checkoutCart(payload: CheckoutPayload): Promise<SalesInvoi
         productId: item.productId,
         productName: item.productName,
         sku: item.sku,
+        uomId: item.uomId,
+        uomLabel: item.uomLabel,
         quantity: item.quantity,
         price: item.price,
         discount: discountAmount,
@@ -396,7 +404,9 @@ export async function checkoutCart(payload: CheckoutPayload): Promise<SalesInvoi
     items: payload.items.map((item) => {
       const discountAmount = (item.price * item.quantity * item.discountPercent) / 100
       return {
-        productVariantId: item.id, // item.id is productVariantId in POS cart
+        productVariantId: item.productVariantId ?? item.id,
+        uomId: item.uomId || undefined,
+        priceListId: payload.priceListId || undefined,
         quantity: item.quantity,
         discountAmount: String(discountAmount),
         taxAmount: "0.00",

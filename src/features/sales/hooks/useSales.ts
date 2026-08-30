@@ -3,6 +3,7 @@ import { toast } from "sonner"
 import { toastApiError } from "@/lib/api/errors"
 import {
   createSalesOrder,
+  fetchSalesPriceLists,
   fetchCustomerAnalyticsSummary,
   fetchProductPerformance,
   fetchRevenueTrend,
@@ -12,7 +13,7 @@ import {
   updateSalesOrderStatus,
 } from "../api/sales.api"
 import type { SalesOrderFormValues } from "../schemas/sales.schema"
-import type { RevenueTrendGranularity, SalesOrderStatus } from "../types"
+import type { RevenueTrendGranularity, SalesOrderStatus, SalesReportFilters } from "../types"
 
 // --- Sales Orders ---
 
@@ -28,6 +29,13 @@ export function useSalesOrder(id: string | undefined) {
     queryKey: ["sales-orders", id],
     queryFn: () => fetchSalesOrderById(id as string),
     enabled: !!id,
+  })
+}
+
+export function useSalesPriceLists() {
+  return useQuery({
+    queryKey: ["sales", "pricing", "price-lists"],
+    queryFn: () => fetchSalesPriceLists(),
   })
 }
 
@@ -69,23 +77,23 @@ export function useSalesKpis() {
   })
 }
 
-export function useRevenueTrend(granularity: RevenueTrendGranularity) {
+export function useRevenueTrend(granularity: RevenueTrendGranularity, filters?: SalesReportFilters) {
   return useQuery({
-    queryKey: ["sales", "analytics", "revenue-trend", granularity],
-    queryFn: () => fetchRevenueTrend(granularity),
+    queryKey: ["sales", "analytics", "revenue-trend", granularity, filters?.branchId ?? null, filters?.fromDate ?? null, filters?.toDate ?? null],
+    queryFn: () => fetchRevenueTrend(granularity, filters),
   })
 }
 
-export function useProductPerformance() {
+export function useProductPerformance(filters?: SalesReportFilters) {
   return useQuery({
-    queryKey: ["sales", "analytics", "product-performance"],
-    queryFn: () => fetchProductPerformance(),
+    queryKey: ["sales", "analytics", "product-performance", filters?.branchId ?? null, filters?.fromDate ?? null, filters?.toDate ?? null],
+    queryFn: () => fetchProductPerformance(filters),
   })
 }
 
-export function useCustomerAnalyticsSummary() {
+export function useCustomerAnalyticsSummary(filters?: SalesReportFilters) {
   return useQuery({
-    queryKey: ["sales", "analytics", "customers"],
-    queryFn: () => fetchCustomerAnalyticsSummary(),
+    queryKey: ["sales", "analytics", "customers", filters?.branchId ?? null, filters?.fromDate ?? null, filters?.toDate ?? null],
+    queryFn: () => fetchCustomerAnalyticsSummary(filters),
   })
 }

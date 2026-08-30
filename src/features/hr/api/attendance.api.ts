@@ -5,19 +5,18 @@ import type { AttendanceMetrics, AttendanceOverviewPoint, AttendanceRecord, Atte
 import { attendanceMetrics, attendanceOverview, mockAttendanceRecords, mockShifts } from "./mock-data"
 
 const USE_MOCK = env.NEXT_PUBLIC_USE_MOCK_AUTH
+const ATTENDANCE_PAGE_SIZE = 100
 
 function delay<T>(value: T, ms = 200): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms))
 }
-
-// --- Attendance ---
-// Real controller: @Controller('attendance') — NOT /hr/attendance.
 
 type BackendAttendanceStatus = "PRESENT" | "ABSENT" | "LATE" | "LEAVE" | "HALF_DAY"
 
 type BackendAttendanceRecord = {
   id: string
   employeeId: string
+  employeeName?: string | null
   companyId: string
   branchId: string
   attendanceDate: string
@@ -27,6 +26,15 @@ type BackendAttendanceRecord = {
   note: string | null
   createdAt: string
   updatedAt: string
+}
+
+type PaginatedResponse<T> = {
+  data?: T[]
+  meta?: {
+    page?: number
+    limit?: number
+    total?: number
+  } | null
 }
 
 function mapAttendanceStatus(status: BackendAttendanceStatus): AttendanceStatus {
@@ -50,8 +58,7 @@ function mapBackendToRecord(be: BackendAttendanceRecord): AttendanceRecord {
   return {
     id: be.id,
     employeeId: be.employeeId,
-    // Not returned by this endpoint — would require an employees join.
-    employeeName: "",
+    employeeName: be.employeeName?.trim() || "Unknown employee",
     date: be.attendanceDate,
     checkIn: be.checkInAt ?? undefined,
     checkOut: be.checkOutAt ?? undefined,
@@ -60,51 +67,83 @@ function mapBackendToRecord(be: BackendAttendanceRecord): AttendanceRecord {
   }
 }
 
+async function fetchAllAttendanceRows(companyId: string): Promise<BackendAttendanceRecord[]> {
+  let page = 1
+  let total = Number.POSITIVE_INFINITY
+  const rows: BackendAttendanceRecord[] = []
+
+  while (rows.length < total) {
+    const { data } = await apiClient.get<PaginatedResponse<BackendAttendanceRecord>>("/attendance", {
+      params: { companyId, page, limit: ATTENDANCE_PAGE_SIZE },
+    })
+    const batch = data.data ?? []
+    rows.push(...batch)
+
+    const reportedTotal = data.meta?.total
+    total =
+      typeof reportedTotal === "number"
+        ? reportedTotal
+        : batch.length < ATTENDANCE_PAGE_SIZE
+          ? rows.length
+          : rows.length + ATTENDANCE_PAGE_SIZE
+
+    if (batch.length < ATTENDANCE_PAGE_SIZE) break
+    page += 1
+  }
+
+  return rows
+}
+
+function summarizeAttendanceMetrics(records: AttendanceRecord[]): AttendanceMetrics {
+  const summaryDate = records.reduce<string | null>(
+    (latest, record) => (!latest || record.date > latest ? record.date : latest),
+    null,
+  )
+
+  if (!summaryDate) {
+    return { present: 0, absent: 0, late: 0, summaryDate: null }
+  }
+
+  const dayRecords = records.filter((record) => record.date === summaryDate)
+  return {
+    present: dayRecords.filter((record) => record.status === "present").length,
+    absent: dayRecords.filter((record) => record.status === "absent").length,
+    late: dayRecords.filter((record) => record.status === "late").length,
+    summaryDate,
+  }
+}
+
 export async function fetchAttendanceRecords(): Promise<AttendanceRecord[]> {
   if (USE_MOCK) return delay(mockAttendanceRecords)
   const companyId = await resolveCompanyId()
-  const { data } = await apiClient.get<{ data: BackendAttendanceRecord[]; meta: unknown }>(
-    "/attendance",
-    { params: { companyId, limit: 100 } },
-  )
-  return (data.data ?? []).map(mapBackendToRecord)
+  const rows = await fetchAllAttendanceRows(companyId)
+  return rows.map(mapBackendToRecord)
 }
 
-/** No backend aggregate endpoint exists for attendance metrics/overview —
- * derived client-side from the real records instead of calling a fictional
- * /hr/attendance/metrics route. `earlyLeave`/`overtime` have no backend
- * source at all (AttendanceRecord has no late/overtime calculation — status
- * is a raw caller-supplied enum, never derived from check-in/out times) and
- * are omitted entirely rather than hardcoded to a 0 that would look like a
- * real, counted value. */
+// No backend aggregate endpoint exists for attendance metrics/overview, so
+// the frontend derives these summaries from the live attendance rows.
 export async function fetchAttendanceMetrics(): Promise<AttendanceMetrics> {
   if (USE_MOCK) return delay(attendanceMetrics)
   const records = await fetchAttendanceRecords()
-  return {
-    present: records.filter((r) => r.status === "present").length,
-    absent: records.filter((r) => r.status === "absent").length,
-    late: records.filter((r) => r.status === "late").length,
-  }
+  return summarizeAttendanceMetrics(records)
 }
 
 export async function fetchAttendanceOverview(): Promise<AttendanceOverviewPoint[]> {
   if (USE_MOCK) return delay(attendanceOverview)
   const records = await fetchAttendanceRecords()
   const byDate = new Map<string, AttendanceOverviewPoint>()
-  for (const r of records) {
-    const point = byDate.get(r.date) ?? { period: r.date, present: 0, absent: 0, late: 0 }
-    if (r.status === "present") point.present += 1
-    else if (r.status === "absent") point.absent += 1
-    else if (r.status === "late") point.late += 1
-    byDate.set(r.date, point)
+  for (const record of records) {
+    const point = byDate.get(record.date) ?? { period: record.date, present: 0, absent: 0, late: 0 }
+    if (record.status === "present") point.present += 1
+    else if (record.status === "absent") point.absent += 1
+    else if (record.status === "late") point.late += 1
+    byDate.set(record.date, point)
   }
   return Array.from(byDate.values()).sort((a, b) => a.period.localeCompare(b.period))
 }
 
-// --- Shifts ---
-// No backend module exists for shifts in Phase 00-31 — mock-only until a
-// real endpoint is added; UI should treat this as unavailable in live mode.
-
+// No backend module exists for shifts in Phase 00-31, so shift CRUD remains
+// mock-only until a real endpoint is added.
 export type ShiftFormValues = Omit<Shift, "id">
 
 export async function fetchShifts(): Promise<Shift[]> {
@@ -119,7 +158,7 @@ export async function createShift(values: ShiftFormValues): Promise<Shift> {
 
 export async function updateShift(id: string, values: ShiftFormValues): Promise<Shift> {
   if (USE_MOCK) {
-    const existing = mockShifts.find((s) => s.id === id)
+    const existing = mockShifts.find((shift) => shift.id === id)
     if (!existing) throw new Error("Shift not found")
     return delay({ ...existing, ...values })
   }

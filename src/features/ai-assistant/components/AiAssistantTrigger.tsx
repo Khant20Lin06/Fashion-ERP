@@ -17,8 +17,16 @@ export function AiAssistantTrigger() {
   if (!canChat) return null
 
   return (
-    <Button variant="ghost" size="icon" onClick={() => setOpen(true)} aria-label="Open AI Assistant">
+    <Button
+      variant="ghost"
+      size="sm"
+      className="gap-2 px-2"
+      onClick={() => setOpen(true)}
+      aria-label="Open AI Assistant"
+      title="Open AI Assistant"
+    >
       <Bot className="size-5" />
+      <span className="hidden xl:inline">Ask AI</span>
     </Button>
   )
 }

@@ -9,7 +9,9 @@ export default function PurchaseInvoicePage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Purchase Invoice</h1>
-        <p className="text-sm text-muted-foreground">Track supplier invoices and payment status.</p>
+        <p className="text-sm text-muted-foreground">
+          Track supplier invoices with receipt-match visibility and payment-readiness control.
+        </p>
       </div>
 
       <PurchaseInvoiceTable />

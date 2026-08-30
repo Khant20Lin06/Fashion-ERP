@@ -27,13 +27,13 @@ import {
 import { EmptyState } from "@/components/ui/empty-state"
 import { ProductPurchaseSelector } from "@/components/purchase/ProductPurchaseSelector"
 import { QuantityInput } from "@/components/inventory/QuantityInput"
-import { useProducts } from "@/features/products/hooks/useProducts"
+import { useAllProductsFull } from "@/features/products/hooks/useProducts"
 import { purchaseRequestFormSchema, type PurchaseRequestFormValues } from "../schemas/purchase.schema"
 import { useCreatePurchaseRequest } from "../hooks/usePurchaseOrders"
 
-/** Purchase Request form — internal request before purchasing, with product line items. */
+/** Purchase Request form - internal request before purchasing, with variant-based line items. */
 export function PurchaseRequestForm({ onCreated }: { onCreated?: () => void }) {
-  const { data: products } = useProducts()
+  const { data: products } = useAllProductsFull()
   const createRequest = useCreatePurchaseRequest()
   const [pendingProductId, setPendingProductId] = useState("")
   const [pendingReason, setPendingReason] = useState("")
@@ -46,12 +46,13 @@ export function PurchaseRequestForm({ onCreated }: { onCreated?: () => void }) {
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" })
 
   function handleAddProduct() {
-    const product = (products ?? []).find((p) => p.id === pendingProductId)
-    if (!product || !pendingReason) return
+    const product = (products ?? []).find((entry) => entry.variants.some((variant) => variant.id === pendingProductId))
+    const variant = product?.variants.find((entry) => entry.id === pendingProductId)
+    if (!product || !variant || !pendingReason) return
     append({
-      productId: product.id,
+      productId: variant.id,
       productName: product.name,
-      sku: product.sku,
+      sku: variant.sku,
       quantity: 1,
       reason: pendingReason,
     })
@@ -122,7 +123,7 @@ export function PurchaseRequestForm({ onCreated }: { onCreated?: () => void }) {
                 <FormItem className="sm:col-span-2">
                   <FormLabel>Notes</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Additional context…" rows={2} {...field} />
+                    <Textarea placeholder="Additional context..." rows={2} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

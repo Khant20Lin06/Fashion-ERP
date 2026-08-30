@@ -83,6 +83,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
               <DetailField label="Collection" value={product.collectionName ?? "—"} />
               <DetailField label="Gender" value={product.gender} className="capitalize" />
               <DetailField label="Season" value={product.season.replace("_", "/")} className="capitalize" />
+              <DetailField label="Base UOM" value={product.baseUom?.name ?? product.baseUomId ?? "â€”"} />
               <DetailField label="Total Stock" value={formatNumber(product.stockQuantity)} />
               {product.description && (
                 <div className="sm:col-span-2">
@@ -112,6 +113,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
                       <TableHead>Barcode</TableHead>
                       <TableHead>Price</TableHead>
                       <TableHead>Stock</TableHead>
+                      <TableHead>Base UOM</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -124,6 +126,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
                         <TableCell className="font-mono text-xs">{variant.barcode}</TableCell>
                         <TableCell>{formatCurrency(variant.sellingPrice)}</TableCell>
                         <TableCell>{formatNumber(variant.stockQuantity)}</TableCell>
+                        <TableCell>{variant.baseUom?.name ?? variant.baseUomId ?? product.baseUom?.name ?? "â€”"}</TableCell>
                         <TableCell>
                           <Badge variant={variant.status === "active" ? "default" : "secondary"} className="capitalize">
                             {variant.status}
@@ -143,16 +146,22 @@ export function ProductDetail({ product }: ProductDetailProps) {
         </TabsContent>
 
         <TabsContent value="pricing" className="mt-4">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <PriceCard label="Cost Price" value={product.pricing.costPrice} tone="muted" />
-            <PriceCard label="Selling Price" value={product.pricing.sellingPrice} />
-            {product.pricing.discountPrice ? (
-              <PriceCard label="Discount Price" value={product.pricing.discountPrice} tone="muted" />
-            ) : null}
-            {product.pricing.wholesalePrice ? (
-              <PriceCard label="Wholesale Price" value={product.pricing.wholesalePrice} tone="muted" />
-            ) : null}
-            <MarginCard costPrice={product.pricing.costPrice} sellingPrice={product.pricing.sellingPrice} />
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Base catalog pricing is stored in {product.baseUom?.name ?? product.baseUomId ?? "the product base UOM"}.
+              UOM-specific selling prices can be configured from price lists after alternate UOM mappings are created.
+            </p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <PriceCard label="Cost Price" value={product.pricing.costPrice} tone="muted" />
+              <PriceCard label="Selling Price" value={product.pricing.sellingPrice} />
+              {product.pricing.discountPrice ? (
+                <PriceCard label="Discount Price" value={product.pricing.discountPrice} tone="muted" />
+              ) : null}
+              {product.pricing.wholesalePrice ? (
+                <PriceCard label="Wholesale Price" value={product.pricing.wholesalePrice} tone="muted" />
+              ) : null}
+              <MarginCard costPrice={product.pricing.costPrice} sellingPrice={product.pricing.sellingPrice} />
+            </div>
           </div>
         </TabsContent>
 

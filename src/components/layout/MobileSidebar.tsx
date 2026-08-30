@@ -11,6 +11,7 @@ import { useSidebarStore } from "@/stores/sidebar.store"
 import { useFilteredNavigation } from "@/hooks/use-filtered-navigation"
 import { navigationTree } from "@/config/navigation"
 import { NavTree } from "./NavTree"
+import { buildSidebarScrollRegionClassName } from "./sidebar-scroll.classes"
 
 /** Full-screen drawer navigation for tablet/mobile breakpoints. */
 export function MobileSidebar() {
@@ -25,7 +26,7 @@ export function MobileSidebar() {
           <BarChart3 className="size-6 text-sidebar-primary" />
           <SheetTitle className="text-sidebar-foreground">Fashion ERP</SheetTitle>
         </SheetHeader>
-        <nav className="flex-1 overflow-y-auto px-2 py-4" onClick={() => setMobileOpen(false)}>
+        <nav className={buildSidebarScrollRegionClassName("flex-1 px-2 py-4")} onClick={() => setMobileOpen(false)}>
           <NavTree items={items} />
         </nav>
       </SheetContent>

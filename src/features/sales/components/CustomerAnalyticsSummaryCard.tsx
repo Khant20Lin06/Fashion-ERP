@@ -5,10 +5,11 @@ import { ErrorState } from "@/components/ui/error-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatCurrency, formatNumber } from "@/lib/format"
 import { useCustomerAnalyticsSummary } from "../hooks/useSales"
+import type { SalesReportFilters } from "../types"
 
-/** Customer Analytics summary — New Customers, Returning Customers, Customer Lifetime Value. */
-export function CustomerAnalyticsSummaryCard() {
-  const { data, isLoading, isError, refetch } = useCustomerAnalyticsSummary()
+/** Customer analytics summary for the selected report scope. */
+export function CustomerAnalyticsSummaryCard({ filters }: { filters?: SalesReportFilters }) {
+  const { data, isLoading, isError, refetch } = useCustomerAnalyticsSummary(filters)
 
   if (isError) return <ErrorState message="Couldn't load customer analytics." onRetry={refetch} />
 
@@ -38,8 +39,8 @@ export function CustomerAnalyticsSummaryCard() {
       </Card>
       <Card className="py-4">
         <CardContent className="px-4">
-          <p className="text-xs font-medium text-muted-foreground">Customer Lifetime Value</p>
-          <p className="text-xl font-semibold tabular-nums">{formatCurrency(data.customerLifetimeValue)}</p>
+          <p className="text-xs font-medium text-muted-foreground">Average Customer Spend</p>
+          <p className="text-xl font-semibold tabular-nums">{formatCurrency(data.averageCustomerSpend)}</p>
         </CardContent>
       </Card>
     </div>

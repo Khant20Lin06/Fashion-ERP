@@ -1,6 +1,7 @@
+import { env } from "@/config/env"
 import { apiClient } from "@/lib/api/client"
 import { resolveCompanyId } from "@/lib/api/resolve-company-id"
-import { env } from "@/config/env"
+import { fetchInvoices } from "@/features/purchase/api/payment.api"
 import type {
   ApMetrics,
   ArMetrics,
@@ -19,18 +20,17 @@ function delay<T>(value: T, ms = 200): Promise<T> {
 }
 
 // Real backend routes: AR/AP aging is one combined endpoint
-// @Controller('reports/ar-ap-aging') (NOT split /accounting/receivable +
-// /accounting/payable), and Payments live under the separate
-// @Controller('payments') (NOT /accounting/payments). accounting/* itself
+// @Controller("reports/ar-ap-aging") (not split /accounting/receivable +
+// /accounting/payable), and payments live under the separate
+// @Controller("payments") (not /accounting/payments). accounting/* itself
 // only has accounts, general-ledger, journal-entries, trial-balance.
 
 // --- AR / AP Aging ---
-// The real endpoint returns per-customer/per-supplier aging BUCKETS
+// The real endpoint returns per-customer/per-supplier aging buckets
 // (current/1-30/31-60/61-90/over90 totals), not per-invoice rows with an
-// invoiceNumber/dueDate/status — there is no backend endpoint that lists
-// individual outstanding invoices. Rows below are mapped from the
-// aggregate per-party total as the closest honest approximation; invoice-
-// level fields are not fabricated.
+// invoiceNumber/dueDate/status. Rows below are mapped from the aggregate
+// per-party total as the closest honest approximation; invoice-level
+// fields are not fabricated.
 
 type BackendAgingBuckets = {
   current: string
@@ -62,7 +62,48 @@ type BackendArApAgingResult = {
   totalPayables: string
 }
 
+type PaginatedResponse<T> = {
+  data?: T[]
+  meta?: {
+    page?: number
+    limit?: number
+    total?: number
+  } | null
+}
+
+type BackendPartyRow = {
+  id: string
+  name: string
+}
+
 let cachedAging: { result: BackendArApAgingResult; fetchedAt: number } | null = null
+
+function normalizeOutstandingAmount(value: string | number): number {
+  const amount = typeof value === "number" ? value : parseFloat(value) || 0
+  return Math.abs(amount)
+}
+
+async function fetchAllPages<T>(path: string, params: Record<string, string | number | undefined>): Promise<T[]> {
+  const limit = 100
+  let page = 1
+  let total = Number.POSITIVE_INFINITY
+  const rows: T[] = []
+
+  while (rows.length < total) {
+    const { data } = await apiClient.get<PaginatedResponse<T>>(path, {
+      params: { ...params, page, limit },
+    })
+    const batch = data.data ?? []
+    rows.push(...batch)
+
+    const reportedTotal = data.meta?.total
+    total = typeof reportedTotal === "number" ? reportedTotal : batch.length < limit ? rows.length : rows.length + limit
+    if (batch.length < limit) break
+    page += 1
+  }
+
+  return rows
+}
 
 async function fetchAging(): Promise<BackendArApAgingResult> {
   // Cached briefly within a page view since both the row list and the
@@ -90,64 +131,73 @@ function overdueOf(row: BackendAgingBuckets): number {
 export async function fetchReceivables(): Promise<ReceivableRow[]> {
   if (USE_MOCK) return delay(mockReceivables)
   const aging = await fetchAging()
-  return aging.receivables.map((r) => ({
-    id: r.customerId,
-    customerName: r.customerName,
-    invoiceNumber: r.customerCode,
+  return aging.receivables.map((row) => ({
+    id: row.customerId,
+    customerName: row.customerName,
+    invoiceNumber: row.customerCode,
     date: aging.asOfDate,
-    amount: parseFloat(r.total) || 0,
+    amount: normalizeOutstandingAmount(row.total),
     paid: 0,
-    remaining: parseFloat(r.total) || 0,
+    remaining: normalizeOutstandingAmount(row.total),
     dueDate: aging.asOfDate,
-    status: overdueOf(r) > 0 ? "overdue" : "pending",
+    status: overdueOf(row) > 0 ? "overdue" : "pending",
   }))
 }
 
 export async function fetchArMetrics(): Promise<ArMetrics> {
   if (USE_MOCK) return delay(arMetrics)
   const aging = await fetchAging()
-  const overdueAmount = aging.receivables.reduce((sum, r) => sum + overdueOf(r), 0)
+  const totalOutstanding = normalizeOutstandingAmount(aging.totalReceivables)
+  const overdueAmount = aging.receivables.reduce((sum, row) => sum + overdueOf(row), 0)
+
   return {
-    totalOutstanding: parseFloat(aging.totalReceivables) || 0,
-    overdueAmount,
-    // Not derivable from the aging snapshot (it has no paid/settled data).
+    totalOutstanding,
+    overdueAmount: Math.abs(overdueAmount),
     paidAmount: 0,
-    customerBalance: parseFloat(aging.totalReceivables) || 0,
+    customerBalance: totalOutstanding,
   }
 }
 
 export async function fetchPayables(): Promise<PayableRow[]> {
   if (USE_MOCK) return delay(mockPayables)
-  const aging = await fetchAging()
-  return aging.payables.map((p) => ({
-    id: p.supplierId,
-    supplierName: p.supplierName,
-    invoiceNumber: p.supplierCode,
-    amount: parseFloat(p.total) || 0,
-    paid: 0,
-    balance: parseFloat(p.total) || 0,
-    dueDate: aging.asOfDate,
-    status: overdueOf(p) > 0 ? "overdue" : "pending",
-  }))
+  const invoices = await fetchInvoices()
+  return invoices
+    .filter((invoice) => invoice.balanceAmount > 0 || invoice.amountPaid > 0)
+    .map((invoice) => ({
+      id: invoice.id,
+      supplierName: invoice.supplierName,
+      invoiceNumber: invoice.invoiceNumber,
+      amount: invoice.grandTotal,
+      paid: invoice.amountPaid,
+      balance: invoice.balanceAmount,
+      dueDate: invoice.dueDate,
+      status: invoice.paymentStatus === "unpaid" ? "pending" : invoice.paymentStatus,
+    }))
 }
 
 export async function fetchApMetrics(): Promise<ApMetrics> {
   if (USE_MOCK) return delay(apMetrics)
-  const aging = await fetchAging()
+  const invoices = await fetchInvoices()
+  const now = Date.now()
+  const outstandingInvoices = invoices.filter((invoice) => invoice.balanceAmount > 0)
+  const outstandingPayable = outstandingInvoices.reduce((sum, invoice) => sum + invoice.balanceAmount, 0)
+  const paidAmount = invoices.reduce((sum, invoice) => sum + invoice.amountPaid, 0)
+  const dueThisWeek = outstandingInvoices.reduce((sum, invoice) => {
+    const dueAt = new Date(invoice.dueDate).getTime()
+    const daysUntilDue = (dueAt - now) / (1000 * 60 * 60 * 24)
+    return daysUntilDue >= 0 && daysUntilDue <= 7 ? sum + invoice.balanceAmount : sum
+  }, 0)
   return {
-    outstandingPayable: parseFloat(aging.totalPayables) || 0,
-    // "Due this week" needs due-date granularity the aging snapshot
-    // doesn't expose (only bucket ranges) — not fabricated.
-    dueThisWeek: 0,
-    paidAmount: 0,
-    supplierBalance: parseFloat(aging.totalPayables) || 0,
+    outstandingPayable,
+    dueThisWeek,
+    paidAmount,
+    supplierBalance: outstandingPayable,
   }
 }
 
 // --- Payments ---
-// Real controller: @Controller('payments') — NOT /accounting/payments.
-// D14 (locked): GET /payments, GET /payments/:id, POST /payments only —
-// no status PATCH, because every Payment is created already CONFIRMED.
+// Real controller: @Controller("payments"). Every payment is created
+// already confirmed; there is no status PATCH route.
 
 type BackendPaymentDirection = "RECEIPT" | "PAYMENT"
 type BackendPaymentStatus = "CONFIRMED"
@@ -172,42 +222,70 @@ type BackendPayment = {
   updatedAt: string
 }
 
-function mapBackendToFinancePayment(bp: BackendPayment): FinancePayment {
+async function fetchCustomersForJoin(companyId: string): Promise<Array<{ id: string; name: string }>> {
+  try {
+    return await fetchAllPages<BackendPartyRow>("/customers", {
+      companyId,
+    })
+  } catch {
+    return []
+  }
+}
+
+async function fetchSuppliersForJoin(companyId: string): Promise<Array<{ id: string; name: string }>> {
+  try {
+    return await fetchAllPages<BackendPartyRow>("/suppliers", {
+      companyId,
+    })
+  } catch {
+    return []
+  }
+}
+
+function mapBackendToFinancePayment(
+  payment: BackendPayment,
+  customers: Array<{ id: string; name: string }>,
+  suppliers: Array<{ id: string; name: string }>,
+): FinancePayment {
+  const customerName = customers.find((customer) => customer.id === payment.customerId)?.name ?? ""
+  const supplierName = suppliers.find((supplier) => supplier.id === payment.supplierId)?.name ?? ""
+  const partyName =
+    payment.direction === "RECEIPT"
+      ? customerName || "Customer receipt"
+      : supplierName || "Supplier payment"
+
   return {
-    id: bp.id,
-    reference: bp.paymentNumber,
-    direction: bp.direction === "RECEIPT" ? "incoming" : "outgoing",
-    // Not returned by this endpoint — would require a customer/supplier join.
-    partyName: "",
-    relatedReference: bp.reference ?? undefined,
-    amount: parseFloat(bp.amount) || 0,
-    // paymentMethodId is a UUID reference (/payment-methods), not one of
-    // the frontend's fixed method strings — not fabricated.
+    id: payment.id,
+    reference: payment.paymentNumber,
+    direction: payment.direction === "RECEIPT" ? "incoming" : "outgoing",
+    partyName,
+    relatedReference: payment.reference ?? undefined,
+    amount: parseFloat(payment.amount) || 0,
     method: "bank_transfer",
-    date: bp.paymentDate,
+    date: payment.paymentDate,
     status: "paid",
-    createdBy: bp.createdBy ?? "",
+    createdBy: payment.createdBy ?? "",
   }
 }
 
 export async function fetchFinancePayments(): Promise<FinancePayment[]> {
   if (USE_MOCK) return delay(mockFinancePayments)
   const companyId = await resolveCompanyId()
-  const { data } = await apiClient.get<{ data: BackendPayment[]; meta: unknown }>("/payments", {
-    params: { companyId, limit: 100 },
-  })
-  return (data.data ?? []).map(mapBackendToFinancePayment)
+  const [payments, customers, suppliers] = await Promise.all([
+    fetchAllPages<BackendPayment>("/payments", {
+      companyId,
+    }),
+    fetchCustomersForJoin(companyId),
+    fetchSuppliersForJoin(companyId),
+  ])
+  return payments.map((payment) => mapBackendToFinancePayment(payment, customers, suppliers))
 }
 
 /**
  * NOT WIRED: the real POST /payments requires customerId/supplierId +
- * paymentMethodId (UUID references) + a non-empty `allocations` array
- * tying the payment to specific Sale/PurchaseOrder balances. The current
- * form only collects a free-text partyName and a fixed method string, so
- * there isn't enough real data here to build a valid request — sending one
- * would just 400. Needs a form redesign (party picker + payment-method
- * picker + invoice/allocation picker) before this can call the real
- * endpoint; left unimplemented rather than faking a payload.
+ * paymentMethodId UUID references and a non-empty allocations array tying
+ * the payment to specific balances. The current form does not collect the
+ * data needed to build that real payload yet.
  */
 export async function createFinancePayment(values: FinancePaymentFormValues): Promise<FinancePayment> {
   if (USE_MOCK) {
@@ -225,18 +303,15 @@ export async function createFinancePayment(values: FinancePaymentFormValues): Pr
     })
   }
   throw new Error(
-    "Recording a payment from this form isn't available yet — it needs a customer/supplier and payment method picker to call the real API.",
+    "Recording a payment from this form isn't available yet - it needs a customer or supplier picker, payment method picker, and allocation picker to call the real API.",
   )
 }
 
-/** Real backend has no status PATCH — every payment is created already
- * CONFIRMED (D14, locked), so there is no "approve/reconcile" transition
- * to call. */
 export async function updateFinancePaymentStatus(id: string, status: FinancePaymentStatus): Promise<FinancePayment> {
   if (USE_MOCK) {
-    const existing = mockFinancePayments.find((p) => p.id === id)
+    const existing = mockFinancePayments.find((payment) => payment.id === id)
     if (!existing) throw new Error("Payment not found")
     return delay({ ...existing, status })
   }
-  throw new Error("Payment status changes are not supported by the backend — payments are created already confirmed.")
+  throw new Error("Payment status changes are not supported by the backend - payments are created already confirmed.")
 }

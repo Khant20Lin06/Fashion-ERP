@@ -3,7 +3,7 @@ import { resolveCompanyId } from "@/lib/api/resolve-company-id"
 import { env } from "@/config/env"
 import { toApiError } from "@/lib/api/errors"
 import { generateProductCode } from "../utils/generate-product-code"
-import type { AttributeKind, AttributeOption, Product, ProductListItem, ProductVariant } from "../types"
+import type { AttributeKind, AttributeOption, Product, ProductListItem, ProductVariant, Uom } from "../types"
 import type { ProductFormValues } from "../schemas/product.schema"
 import { mockProducts, toListItem } from "./mock-data"
 
@@ -38,6 +38,7 @@ type BackendVariant = {
   sku: string
   costPrice: string
   sellingPrice: string
+  baseUomId: string | null
   status: string
   attributes: Array<{
     kind: string
@@ -61,6 +62,17 @@ type BackendStock = {
 type ProductLookups = {
   categories: Array<{ id: string; name: string }>
   brands: Array<{ id: string; name: string }>
+  uoms: Uom[]
+}
+
+type BackendUom = {
+  id: string
+  code: string
+  name: string
+  symbol: string | null
+  category: string
+  decimalPlaces: number
+  isActive: boolean
 }
 
 type BackendAttributeOption = {
@@ -81,6 +93,7 @@ type CreateProductVariantRequest = {
   sku: string
   costPrice: string
   sellingPrice: string
+  baseUomId?: string
   attributes?: VariantAttributePayload[]
 }
 
@@ -136,17 +149,37 @@ function mapVariant(variant: BackendVariant, stockQty = 0): ProductVariant {
     costPrice: parseFloat(variant.costPrice) || 0,
     sellingPrice: parseFloat(variant.sellingPrice) || 0,
     stockQuantity: stockQty,
+    baseUomId: variant.baseUomId ?? undefined,
     status: variant.status === "ACTIVE" ? "active" : "inactive",
+  }
+}
+
+function mapUom(uom: BackendUom): Uom {
+  return {
+    id: uom.id,
+    code: uom.code,
+    name: uom.name,
+    symbol: uom.symbol ?? undefined,
+    category: uom.category as Uom["category"],
+    decimalPlaces: uom.decimalPlaces,
+    isActive: uom.isActive,
   }
 }
 
 function mapBackendToProduct(
   product: BackendProduct,
   variants: BackendVariant[] = [],
-  lookups: ProductLookups = { categories: [], brands: [] },
+  lookups: ProductLookups = { categories: [], brands: [], uoms: [] },
   stockMap: Record<string, number> = {},
 ): Product {
-  const mappedVariants = variants.map((variant) => mapVariant(variant, stockMap[variant.id] ?? 0))
+  const uomsById = new Map(lookups.uoms.map((uom) => [uom.id, uom]))
+  const mappedVariants = variants.map((variant) => {
+    const mapped = mapVariant(variant, stockMap[variant.id] ?? 0)
+    return {
+      ...mapped,
+      baseUom: mapped.baseUomId ? uomsById.get(mapped.baseUomId) : undefined,
+    }
+  })
   const firstVariant = mappedVariants[0]
   const categoryName = lookups.categories.find((category) => category.id === product.categoryId)?.name ?? product.categoryId
   const brandName = lookups.brands.find((brand) => brand.id === product.brandId)?.name ?? product.brandId
@@ -165,10 +198,13 @@ function mapBackendToProduct(
     season: "all_season",
     gender: "unisex",
     sku: firstVariant?.sku ?? product.code,
+    baseUomId: firstVariant?.baseUomId,
+    baseUom: firstVariant?.baseUom,
     status: mapStatus(product.status),
     images: [],
     variants: mappedVariants,
     pricing: {
+      baseUomId: firstVariant?.baseUomId,
       costPrice: firstVariant?.costPrice ?? 0,
       sellingPrice: firstVariant?.sellingPrice ?? 0,
       taxRate: 0,
@@ -229,9 +265,21 @@ async function fetchProductLookups(companyId: string): Promise<ProductLookups> {
     }),
   ])
 
+  let uoms: Uom[] = []
+  try {
+    const { data: uomData } = await apiClient.get<{ data: BackendUom[] }>("/uoms", {
+      params: { companyId, limit: 100 },
+    })
+    uoms = (uomData.data ?? []).filter((uom) => uom.isActive).map(mapUom)
+  } catch {
+    // Users may have product access without UOM CRUD access; keep product
+    // screens renderable and fall back to raw ids where needed.
+  }
+
   return {
     categories: categoriesRes.data.data ?? [],
     brands: brandsRes.data.data ?? [],
+    uoms,
   }
 }
 
@@ -385,6 +433,7 @@ async function syncProductVariants(
   companyId: string,
   nextVariants: ProductVariant[],
   currentVariants: ProductVariant[],
+  defaultBaseUomId?: string,
 ): Promise<void> {
   const optionsByKind = await fetchAttributeOptionsByKind(companyId)
   const currentById = new Map(currentVariants.filter((variant) => isPersistedVariantId(variant.id)).map((variant) => [variant.id, variant]))
@@ -410,6 +459,7 @@ async function syncProductVariants(
           sku: variant.sku,
           costPrice: String(variant.costPrice),
           sellingPrice: String(variant.sellingPrice),
+          baseUomId: variant.baseUomId ?? defaultBaseUomId ?? undefined,
           attributes,
         } satisfies CreateProductVariantRequest,
         { params: { companyId } },
@@ -467,6 +517,7 @@ function mapProductFormToCreatePayload(values: ProductFormValues, companyId: str
       sku: values.sku,
       costPrice: String(values.costPrice),
       sellingPrice: String(values.sellingPrice),
+      baseUomId: values.baseUomId || undefined,
     },
   }
 }
@@ -551,12 +602,14 @@ export async function createProduct(values: ProductFormValues): Promise<Product>
       images: [],
       variants: [],
       pricing: {
+        baseUomId: values.baseUomId,
         costPrice: values.costPrice,
         sellingPrice: values.sellingPrice,
         discountPrice: values.discountPrice,
         wholesalePrice: values.wholesalePrice,
         taxRate: values.taxRate,
       },
+      baseUomId: values.baseUomId,
       stockQuantity: 0,
       warehouseStock: [],
       history: [
@@ -586,7 +639,13 @@ export async function createProduct(values: ProductFormValues): Promise<Product>
       const synced = values.status === "active" ? data : await syncProductStatus(data.id, companyId, values.status)
       const hydrated = await hydrateProduct(synced, companyId)
       if ((values.variants?.length ?? 0) > 0) {
-        await syncProductVariants(hydrated.id, companyId, values.variants ?? [], hydrated.variants)
+        await syncProductVariants(
+          hydrated.id,
+          companyId,
+          values.variants ?? [],
+          hydrated.variants,
+          values.baseUomId,
+        )
         return (await fetchProductById(hydrated.id)) ?? hydrated
       }
       return hydrated
@@ -615,7 +674,13 @@ export async function updateProduct(id: string, values: ProductFormValues): Prom
   })
   const synced = await syncProductStatus(data.id, companyId, values.status)
   const currentVariants = currentProduct?.variants ?? []
-  await syncProductVariants(id, companyId, values.variants ?? currentVariants, currentVariants)
+  await syncProductVariants(
+    id,
+    companyId,
+    values.variants ?? currentVariants,
+    currentVariants,
+    values.baseUomId,
+  )
   return (await fetchProductById(synced.id)) ?? hydrateProduct(synced, companyId)
 }
 

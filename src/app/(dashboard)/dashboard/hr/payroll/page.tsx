@@ -39,7 +39,7 @@ export default function PayrollPage() {
             </Button>
           </div>
           <PayrollPeriodTable />
-          <PayrollPeriodFormDialog open={periodFormOpen} onOpenChange={setPeriodFormOpen} />
+          {periodFormOpen && <PayrollPeriodFormDialog open={periodFormOpen} onOpenChange={setPeriodFormOpen} />}
         </TabsContent>
 
         <TabsContent value="runs" className="mt-4">
@@ -53,7 +53,9 @@ export default function PayrollPage() {
             </Button>
           </div>
           <PayrollComponentTable />
-          <PayrollComponentFormDialog open={componentFormOpen} onOpenChange={setComponentFormOpen} />
+          {componentFormOpen && (
+            <PayrollComponentFormDialog open={componentFormOpen} onOpenChange={setComponentFormOpen} />
+          )}
         </TabsContent>
 
         <TabsContent value="configuration" className="mt-4">

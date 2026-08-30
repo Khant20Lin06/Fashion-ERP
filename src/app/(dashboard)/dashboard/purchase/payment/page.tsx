@@ -9,7 +9,9 @@ export default function SupplierPaymentPage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Supplier Payment</h1>
-        <p className="text-sm text-muted-foreground">Record payments made against supplier invoices.</p>
+        <p className="text-sm text-muted-foreground">
+          Record payments only against receipt-matched invoices with remaining outstanding balance.
+        </p>
       </div>
 
       <PaymentForm />

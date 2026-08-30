@@ -1,12 +1,14 @@
+import { env } from "@/config/env"
 import { apiClient } from "@/lib/api/client"
 import { resolveCompanyId } from "@/lib/api/resolve-company-id"
-import { env } from "@/config/env"
 import type {
   ExecutiveInventoryHealth,
   ExecutiveKpis,
   ExpenseBreakdownPoint,
   FinancialOverview,
+  FinancialReportFilters,
   MarginAnalysisPoint,
+  ProfitLossAccountRow,
   ProfitTrendPoint,
   SalesPerformancePoint,
   ScheduledReport,
@@ -35,11 +37,18 @@ function delay<T>(value: T, ms = 200): Promise<T> {
 // reports/profit-loss, reports/purchases, reports/sales.
 
 // --- Executive Dashboard ---
-// No backend endpoint aggregates these executive KPIs — mock-only.
+// No backend endpoint aggregates these executive KPIs - mock-only.
 
 export async function fetchExecutiveKpis(): Promise<ExecutiveKpis> {
   if (USE_MOCK) return delay(executiveKpis)
-  return { totalRevenue: 0, revenueChangePercent: 0, grossProfit: 0, grossMarginPercent: 0, totalOrders: 0, customerGrowthPercent: 0 }
+  return {
+    totalRevenue: 0,
+    revenueChangePercent: 0,
+    grossProfit: 0,
+    grossMarginPercent: 0,
+    totalOrders: 0,
+    customerGrowthPercent: 0,
+  }
 }
 
 export async function fetchSalesPerformance(): Promise<SalesPerformancePoint[]> {
@@ -53,39 +62,64 @@ export async function fetchExecutiveInventoryHealth(): Promise<ExecutiveInventor
 }
 
 // --- Financial Reports ---
-// Real endpoint: @Controller('reports/profit-loss') — a query over posted
+// Real endpoint: @Controller("reports/profit-loss") - a query over posted
 // journal entries grouped into revenue/expense totals only (no COGS vs.
 // other-expense split), NOT /reports/finance/overview.
+
+type BackendProfitLossRow = {
+  accountId: string
+  accountCode: string
+  accountName: string
+  amount: string
+}
 
 type BackendProfitLossResult = {
   fromDate: string | null
   toDate: string | null
-  revenue: { rows: unknown[]; total: string }
-  expense: { rows: unknown[]; total: string }
+  revenue: { rows: BackendProfitLossRow[]; total: string }
+  expense: { rows: BackendProfitLossRow[]; total: string }
   netIncome: string
 }
 
-export async function fetchFinancialOverview(): Promise<FinancialOverview> {
+function mapProfitLossRows(rows: BackendProfitLossRow[]): ProfitLossAccountRow[] {
+  return rows.map((row) => ({
+    accountId: row.accountId,
+    accountCode: row.accountCode,
+    accountName: row.accountName,
+    amount: parseFloat(row.amount) || 0,
+  }))
+}
+
+export async function fetchFinancialOverview(filters: FinancialReportFilters = {}): Promise<FinancialOverview> {
   if (USE_MOCK) return delay(financialOverview)
+
   const companyId = await resolveCompanyId()
   const { data } = await apiClient.get<BackendProfitLossResult>("/reports/profit-loss", {
-    params: { companyId },
+    params: {
+      companyId,
+      branchId: filters.branchId,
+      fromDate: filters.fromDate,
+      toDate: filters.toDate,
+    },
   })
+
   const revenue = parseFloat(data.revenue.total) || 0
   const expenses = parseFloat(data.expense.total) || 0
+
   return {
+    fromDate: data.fromDate,
+    toDate: data.toDate,
     revenue,
-    // The backend P&L does not separate cost-of-goods-sold from other
-    // expenses — not fabricated as a guessed split.
-    costOfGoodsSold: 0,
-    grossProfit: revenue - expenses,
     expenses,
+    operatingResult: revenue - expenses,
     netProfit: parseFloat(data.netIncome) || 0,
+    revenueRows: mapProfitLossRows(data.revenue.rows),
+    expenseRows: mapProfitLossRows(data.expense.rows),
   }
 }
 
 // No backend endpoint returns a profit trend over time, an expense
-// category breakdown, or margin-by-period — mock-only until real
+// category breakdown, or margin-by-period - mock-only until real
 // endpoints exist (reports/profit-loss only supports a single date range
 // per call, not a time series).
 
@@ -105,7 +139,7 @@ export async function fetchMarginAnalysis(): Promise<MarginAnalysisPoint[]> {
 }
 
 // --- Scheduled Reports ---
-// No backend scheduled-report endpoint exists — mock-only.
+// No backend scheduled-report endpoint exists - mock-only.
 
 export type ScheduledReportFormValues = Omit<ScheduledReport, "id" | "isActive" | "lastSentAt">
 
@@ -127,7 +161,7 @@ export async function createScheduledReport(values: ScheduledReportFormValues): 
 
 export async function toggleScheduledReport(id: string, isActive: boolean): Promise<ScheduledReport> {
   if (USE_MOCK) {
-    const existing = mockScheduledReports.find((r) => r.id === id)
+    const existing = mockScheduledReports.find((report) => report.id === id)
     if (!existing) throw new Error("Scheduled report not found")
     return delay({ ...existing, isActive })
   }

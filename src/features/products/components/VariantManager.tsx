@@ -26,6 +26,9 @@ type VariantManagerProps = {
   productId: string
   brandCode: string
   categoryCode: string
+  baseUomId?: string
+  baseUom?: ProductVariant["baseUom"]
+  baseUomName?: string
   basePricing: { costPrice: number; sellingPrice: number }
 }
 
@@ -41,6 +44,9 @@ export function VariantManager({
   productId,
   brandCode,
   categoryCode,
+  baseUomId,
+  baseUom,
+  baseUomName,
   basePricing,
 }: VariantManagerProps) {
   const attributesByKind = useAttributeOptions()
@@ -69,6 +75,8 @@ export function VariantManager({
           costPrice: basePricing.costPrice,
           sellingPrice: basePricing.sellingPrice,
           stockQuantity: 0,
+          baseUomId,
+          baseUom,
           status: "active" as VariantStatus,
         }
       })
@@ -141,6 +149,7 @@ export function VariantManager({
                   <TableHead>Cost</TableHead>
                   <TableHead>Price</TableHead>
                   <TableHead>Stock</TableHead>
+                  <TableHead>Base UOM</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
@@ -181,6 +190,7 @@ export function VariantManager({
                         className="w-20"
                       />
                     </TableCell>
+                    <TableCell>{variant.baseUom?.name ?? baseUomName ?? variant.baseUomId ?? "—"}</TableCell>
                     <TableCell>
                       <button
                         type="button"

@@ -37,6 +37,60 @@ export type Collection = {
 /** Variant attribute dimensions supported by the Variant Builder. */
 export type AttributeKind = "size" | "color" | "style" | "material"
 
+export type UomCategory = "COUNT" | "WEIGHT" | "VOLUME" | "LENGTH" | "AREA"
+export type VariantUomUsageType = "SALES" | "PURCHASE" | "BOTH"
+export type PriceListStatus = "ACTIVE" | "INACTIVE"
+export type PriceListItemStatus = "ACTIVE" | "INACTIVE"
+
+export type Uom = {
+  id: string
+  code: string
+  name: string
+  symbol?: string
+  category: UomCategory
+  decimalPlaces: number
+  isActive: boolean
+}
+
+export type VariantUomMapping = {
+  id: string
+  variantId: string
+  uomId: string
+  uomCode?: string
+  uomName?: string
+  conversionFactorToBase: string
+  usageType: VariantUomUsageType
+  barcode?: string
+  isBase: boolean
+  isActive: boolean
+}
+
+export type PriceList = {
+  id: string
+  companyId: string
+  code: string
+  name: string
+  description?: string
+  currency: string
+  status: PriceListStatus
+  createdAt: string
+  updatedAt: string
+}
+
+export type PriceListItem = {
+  id: string
+  priceListId: string
+  productVariantId: string
+  companyId: string
+  uomId?: string
+  price: number
+  validFrom: string
+  validTo?: string
+  status: PriceListItemStatus
+  createdAt: string
+  updatedAt: string
+}
+
 export type AttributeOption = {
   id: string
   kind: AttributeKind
@@ -67,6 +121,9 @@ export type ProductVariant = {
   costPrice: number
   sellingPrice: number
   stockQuantity: number
+  baseUomId?: string
+  baseUom?: Uom
+  uomMappings?: VariantUomMapping[]
   status: VariantStatus
   imageUrl?: string
 }
@@ -80,6 +137,7 @@ export type WarehouseStock = {
 }
 
 export type ProductPricing = {
+  baseUomId?: string
   costPrice: number
   sellingPrice: number
   discountPrice?: number
@@ -111,6 +169,8 @@ export type Product = {
   season: Season
   gender: Gender
   sku: string
+  baseUomId?: string
+  baseUom?: Uom
   status: ProductStatus
   images: ProductImage[]
   variants: ProductVariant[]

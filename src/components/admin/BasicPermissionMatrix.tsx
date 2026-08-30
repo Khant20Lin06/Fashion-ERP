@@ -33,9 +33,11 @@ const PRODUCT_RESOURCES = new Set([
   "attribute_options",
   "products",
   "product_variants",
+  "product_variant_uoms",
   "barcodes",
   "price_lists",
   "price_list_items",
+  "uoms",
 ])
 
 const INVENTORY_RESOURCES = new Set([

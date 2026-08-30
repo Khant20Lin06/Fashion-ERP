@@ -11,6 +11,22 @@ import { AttendanceBadge } from "@/components/hr/AttendanceBadge"
 import { useAttendanceRecords } from "../hooks/useAttendance"
 import type { AttendanceRecord } from "../types"
 
+function formatAttendanceDate(value: string): string {
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number)
+  if (!year || !month || !day) return value
+  return new Intl.DateTimeFormat("en-US").format(new Date(year, month - 1, day))
+}
+
+function formatAttendanceTime(value: string | undefined): string {
+  if (!value) return "-"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "-"
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date)
+}
+
 const columns: DataTableColumnDef<AttendanceRecord>[] = [
   {
     accessorKey: "employeeName",
@@ -19,17 +35,17 @@ const columns: DataTableColumnDef<AttendanceRecord>[] = [
   {
     accessorKey: "date",
     header: ({ column }) => <ColumnHeader column={column} title="Date" />,
-    cell: ({ row }) => new Date(row.getValue<string>("date")).toLocaleDateString(),
+    cell: ({ row }) => formatAttendanceDate(row.getValue<string>("date")),
   },
   {
     accessorKey: "checkIn",
     header: ({ column }) => <ColumnHeader column={column} title="Check In" />,
-    cell: ({ row }) => row.getValue("checkIn") ?? "—",
+    cell: ({ row }) => formatAttendanceTime(row.getValue("checkIn")),
   },
   {
     accessorKey: "checkOut",
     header: ({ column }) => <ColumnHeader column={column} title="Check Out" />,
-    cell: ({ row }) => row.getValue("checkOut") ?? "—",
+    cell: ({ row }) => formatAttendanceTime(row.getValue("checkOut")),
   },
   {
     accessorKey: "workingHours",
@@ -43,7 +59,7 @@ const columns: DataTableColumnDef<AttendanceRecord>[] = [
   },
 ]
 
-/** Attendance table — Employee/Date/Check In/Check Out/Working Hours/Status. */
+/** Attendance table - Employee/Date/Check In/Check Out/Working Hours/Status. */
 export function AttendanceTable() {
   const { data, isLoading, isError, refetch } = useAttendanceRecords()
   const [filters, setFilters] = useState<FilterValues>({})

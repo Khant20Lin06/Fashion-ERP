@@ -7,6 +7,7 @@ import {
   fetchProductCostAnalysis,
   fetchPurchaseKpis,
   fetchPurchaseOrderById,
+  fetchPurchaseRequestById,
   fetchPurchaseOrders,
   fetchPurchaseRequests,
   fetchPurchaseTrend,
@@ -15,6 +16,7 @@ import {
 } from "../api/purchase-order.api"
 import type { PurchaseOrderFormValues, PurchaseRequestFormValues } from "../schemas/purchase.schema"
 import type { PurchaseOrderStatus, PurchaseRequest } from "../types"
+import { livePurchaseQueryOptions } from "./live-query-options"
 
 // --- Purchase Requests ---
 
@@ -22,6 +24,7 @@ export function usePurchaseRequests() {
   return useQuery({
     queryKey: ["purchase-requests"],
     queryFn: fetchPurchaseRequests,
+    ...livePurchaseQueryOptions,
   })
 }
 
@@ -34,6 +37,15 @@ export function useCreatePurchaseRequest() {
       toast.success("Purchase request created")
     },
     onError: (error) => toastApiError(error, "Failed to create purchase request"),
+  })
+}
+
+export function usePurchaseRequest(id: string | undefined) {
+  return useQuery({
+    queryKey: ["purchase-requests", id],
+    queryFn: () => fetchPurchaseRequestById(id as string),
+    enabled: !!id,
+    ...livePurchaseQueryOptions,
   })
 }
 
@@ -56,6 +68,7 @@ export function usePurchaseOrders() {
   return useQuery({
     queryKey: ["purchase-orders"],
     queryFn: fetchPurchaseOrders,
+    ...livePurchaseQueryOptions,
   })
 }
 
@@ -64,6 +77,7 @@ export function usePurchaseOrder(id: string | undefined) {
     queryKey: ["purchase-orders", id],
     queryFn: () => fetchPurchaseOrderById(id as string),
     enabled: !!id,
+    ...livePurchaseQueryOptions,
   })
 }
 
@@ -104,6 +118,7 @@ export function usePurchaseKpis() {
   return useQuery({
     queryKey: ["purchase", "kpis"],
     queryFn: fetchPurchaseKpis,
+    ...livePurchaseQueryOptions,
   })
 }
 
@@ -111,6 +126,7 @@ export function usePurchaseTrend() {
   return useQuery({
     queryKey: ["purchase", "analytics", "trend"],
     queryFn: fetchPurchaseTrend,
+    ...livePurchaseQueryOptions,
   })
 }
 
@@ -118,5 +134,6 @@ export function useProductCostAnalysis() {
   return useQuery({
     queryKey: ["purchase", "analytics", "product-cost"],
     queryFn: fetchProductCostAnalysis,
+    ...livePurchaseQueryOptions,
   })
 }

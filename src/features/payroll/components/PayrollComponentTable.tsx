@@ -7,6 +7,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -42,6 +44,20 @@ function formatComponentValue(component: PayrollComponent): string {
   return formatPercent(Number(component.percentage ?? 0))
 }
 
+function getDeleteBlockReason(component: PayrollComponent): string | null {
+  if (component.canDelete) return null
+
+  const reasons: string[] = []
+  if (component.assignmentCount > 0) {
+    reasons.push(`${component.assignmentCount} employee assignment${component.assignmentCount === 1 ? "" : "s"}`)
+  }
+  if (component.historyCount > 0) {
+    reasons.push(`${component.historyCount} payroll history row${component.historyCount === 1 ? "" : "s"}`)
+  }
+
+  return reasons.length > 0 ? `In use by ${reasons.join(" and ")}` : "Referenced by payroll data"
+}
+
 /** Payroll Components management table — earning/deduction/employer-contribution master data. */
 export function PayrollComponentTable() {
   const { data, isLoading, isError, refetch } = usePayrollComponents()
@@ -55,6 +71,25 @@ export function PayrollComponentTable() {
   function openEdit(component: PayrollComponent) {
     setEditing(component)
     setFormOpen(true)
+  }
+
+  function handleEditDialogChange(open: boolean) {
+    setFormOpen(open)
+    if (!open) setEditing(undefined)
+  }
+
+  function handleDeleteDialogChange(open: boolean) {
+    if (!open) setPendingDelete(undefined)
+  }
+
+  function confirmDelete() {
+    if (!pendingDelete?.canDelete) {
+      setPendingDelete(undefined)
+      return
+    }
+    deleteComponent.mutate(pendingDelete.id, {
+      onSettled: () => setPendingDelete(undefined),
+    })
   }
 
   const columns: DataTableColumnDef<PayrollComponent>[] = [
@@ -96,7 +131,10 @@ export function PayrollComponentTable() {
     {
       id: "actions",
       enableHiding: false,
-      cell: ({ row }) => (
+      cell: ({ row }) => {
+        const deleteBlockReason = getDeleteBlockReason(row.original)
+
+        return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" aria-label="Row actions">
@@ -107,12 +145,23 @@ export function PayrollComponentTable() {
             <DropdownMenuItem onClick={() => openEdit(row.original)}>
               <Pencil /> Edit
             </DropdownMenuItem>
+            {deleteBlockReason ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>{deleteBlockReason}</DropdownMenuLabel>
+                <DropdownMenuItem variant="destructive" disabled>
+                  <Trash2 /> Delete unavailable
+                </DropdownMenuItem>
+              </>
+            ) : (
             <DropdownMenuItem variant="destructive" onClick={() => setPendingDelete(row.original)}>
               <Trash2 /> Delete
             </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
-      ),
+        )
+      },
     },
   ]
 
@@ -130,37 +179,29 @@ export function PayrollComponentTable() {
         emptyDescription="Add earning, deduction, or employer-contribution components."
       />
 
-      <PayrollComponentFormDialog
-        open={formOpen}
-        onOpenChange={(open) => {
-          setFormOpen(open)
-          if (!open) setEditing(undefined)
-        }}
-        component={editing}
-      />
+      {formOpen && (
+        <PayrollComponentFormDialog open={formOpen} onOpenChange={handleEditDialogChange} component={editing} />
+      )}
 
-      <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(undefined)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this payroll component?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently remove <span className="font-medium">{pendingDelete?.name}</span>. Components
-              referenced by employee assignments or payroll history cannot be deleted.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (pendingDelete) deleteComponent.mutate(pendingDelete.id)
-                setPendingDelete(undefined)
-              }}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {pendingDelete && (
+        <AlertDialog open onOpenChange={handleDeleteDialogChange}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this payroll component?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently remove <span className="font-medium">{pendingDelete.name}</span>. Components
+                referenced by employee assignments or payroll history cannot be deleted.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleteComponent.isPending}>Cancel</AlertDialogCancel>
+              <AlertDialogAction disabled={!pendingDelete.canDelete || deleteComponent.isPending} onClick={confirmDelete}>
+                {deleteComponent.isPending ? "Deleting..." : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </>
   )
 }

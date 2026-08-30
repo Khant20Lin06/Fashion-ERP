@@ -93,7 +93,7 @@ export function EssDashboard({ employee }: EssDashboardProps) {
           ) : (
             myLeaves.map((leave) => (
               <div key={leave.id} className="flex items-center justify-between text-sm">
-                <span className="capitalize">{leave.type} Leave</span>
+                <span>{leave.typeLabel ?? leave.type}</span>
                 <LeaveStatusBadge status={leave.status} />
               </div>
             ))

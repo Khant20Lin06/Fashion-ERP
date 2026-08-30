@@ -10,7 +10,7 @@ import { useProductPerformance } from "../hooks/useSales"
 /** Top Selling Products widget for the Sales Dashboard, ranked by units sold. */
 export function TopSellingProducts() {
   const { data, isLoading, isError, refetch } = useProductPerformance()
-  const topProducts = (data ?? []).slice().sort((a, b) => b.unitsSold - a.unitsSold).slice(0, 5)
+  const topProducts = data?.topSelling ?? []
 
   return (
     <Card>

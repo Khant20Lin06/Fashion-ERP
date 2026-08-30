@@ -2,11 +2,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { toastApiError } from "@/lib/api/errors"
 import {
+  activateEmployee,
   createEmployee,
   deleteEmployee,
+  destroyEmployee,
   fetchEmployeeById,
   fetchEmployeeDocuments,
   fetchEmployees,
+  terminateEmployee,
   updateEmployee,
 } from "../api/employee.api"
 import type { EmployeeFormValues } from "../schemas/employee.schema"
@@ -69,8 +72,44 @@ export function useDeleteEmployee() {
     mutationFn: (id: string) => deleteEmployee(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["hr"] })
-      toast.success("Employee deleted")
+      toast.success("Employee archived")
     },
-    onError: (error) => toastApiError(error, "Failed to delete employee"),
+    onError: (error) => toastApiError(error, "Failed to archive employee"),
+  })
+}
+
+export function useActivateEmployee() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => activateEmployee(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["hr"] })
+      toast.success("Employee activated")
+    },
+    onError: (error) => toastApiError(error, "Failed to activate employee"),
+  })
+}
+
+export function useDestroyEmployee() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => destroyEmployee(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["hr"] })
+      toast.success("Employee permanently deleted")
+    },
+    onError: (error) => toastApiError(error, "Failed to permanently delete employee"),
+  })
+}
+
+export function useTerminateEmployee() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => terminateEmployee(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["hr"] })
+      toast.success("Employee terminated")
+    },
+    onError: (error) => toastApiError(error, "Failed to terminate employee"),
   })
 }

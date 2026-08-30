@@ -23,7 +23,7 @@ const movementTypeLabels: Record<MovementType, string> = {
   sales_delivery: "Sales Delivery",
   stock_transfer: "Stock Transfer",
   stock_adjustment: "Stock Adjustment",
-  return: "Return",
+  sale_return: "Sales Return",
   damage: "Damage",
   opening_stock: "Opening Stock",
 }
@@ -33,9 +33,17 @@ const movementTypeVariant: Record<MovementType, "default" | "secondary" | "outli
   sales_delivery: "secondary",
   stock_transfer: "outline",
   stock_adjustment: "outline",
-  return: "secondary",
+  sale_return: "secondary",
   damage: "destructive",
   opening_stock: "outline",
+}
+
+function getMovementLabel(type: StockMovement["type"]) {
+  return movementTypeLabels[type] ?? "Unknown"
+}
+
+function getMovementVariant(type: StockMovement["type"]) {
+  return movementTypeVariant[type] ?? "outline"
 }
 
 /** Inventory ledger — every stock-affecting transaction across all warehouses. */
@@ -58,7 +66,7 @@ export function StockMovementTable() {
       header: ({ column }) => <ColumnHeader column={column} title="Transaction Type" />,
       cell: ({ row }) => {
         const type = row.getValue<MovementType>("type")
-        return <Badge variant={movementTypeVariant[type]}>{movementTypeLabels[type]}</Badge>
+        return <Badge variant={getMovementVariant(type)}>{getMovementLabel(type)}</Badge>
       },
     },
     {
@@ -147,7 +155,7 @@ export function StockMovementTable() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Type</p>
-                  <Badge variant={movementTypeVariant[selected.type]}>{movementTypeLabels[selected.type]}</Badge>
+                  <Badge variant={getMovementVariant(selected.type)}>{getMovementLabel(selected.type)}</Badge>
                 </div>
               </div>
 

@@ -12,6 +12,7 @@ import {
 import { EmptyState } from "@/components/ui/empty-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useNotifications, useMarkNotificationRead } from "../hooks/use-notifications"
+import { buildNotificationDropdownScrollAreaClassName } from "./notification-dropdown.classes"
 import { NotificationItem } from "./NotificationItem"
 import type { Notification } from "../types"
 
@@ -40,12 +41,12 @@ export function NotificationDropdown() {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-96 p-0">
+      <PopoverContent align="end" className="w-96 overflow-hidden p-0">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <p className="text-sm font-medium">Notifications</p>
         </div>
 
-        <ScrollArea className="max-h-96">
+        <ScrollArea className={buildNotificationDropdownScrollAreaClassName()}>
           <div className="flex flex-col gap-0.5 p-2">
             {isLoading ? (
               Array.from({ length: 3 }).map((_, i) => (

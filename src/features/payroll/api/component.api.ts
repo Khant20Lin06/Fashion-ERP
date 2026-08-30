@@ -29,6 +29,9 @@ type BackendPayrollComponent = {
   percentage: string | null
   isTaxable: boolean
   isActive: boolean
+  assignmentCount: number
+  historyCount: number
+  canDelete: boolean
   createdAt: string
   updatedAt: string
 }
@@ -69,6 +72,9 @@ export async function createPayrollComponent(values: CreatePayrollComponentInput
       percentage: values.percentage ?? null,
       isTaxable: values.isTaxable ?? false,
       isActive: true,
+      assignmentCount: 0,
+      historyCount: 0,
+      canDelete: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     })

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -24,11 +24,13 @@ import { SKUPreview } from "@/components/products/SKUPreview"
 import { productFormSchema, type ProductFormValues } from "../schemas/product.schema"
 import { useCategories } from "../hooks/useCategories"
 import { useBrands, useCollections } from "../hooks/useBrands"
+import { useUoms } from "../hooks/useUoms"
 import { useCreateProduct, useUpdateProduct } from "../hooks/useProductMutation"
 import { checkSkuAvailability } from "../api/product.api"
 import { ImageUploader } from "./ImageUploader"
 import { PricingPanel } from "./PricingPanel"
 import { VariantManager } from "./VariantManager"
+import { VariantUomManager } from "./VariantUomManager"
 import type { Product, ProductImage, ProductVariant } from "../types"
 
 type ProductFormProps = {
@@ -55,6 +57,7 @@ export function ProductForm({ product }: ProductFormProps) {
   const { data: categories } = useCategories()
   const { data: brands } = useBrands()
   const { data: collections } = useCollections()
+  const { data: uoms } = useUoms()
   const createProduct = useCreateProduct()
   const updateProduct = useUpdateProduct(product?.id ?? "")
 
@@ -76,6 +79,7 @@ export function ProductForm({ product }: ProductFormProps) {
       gender: product?.gender ?? "unisex",
       sku: product?.sku ?? "",
       status: product?.status ?? "draft",
+      baseUomId: product?.baseUomId ?? product?.pricing.baseUomId ?? product?.variants[0]?.baseUomId ?? "",
       costPrice: product?.pricing.costPrice ?? 0,
       sellingPrice: product?.pricing.sellingPrice ?? 0,
       discountPrice: product?.pricing.discountPrice,
@@ -87,6 +91,33 @@ export function ProductForm({ product }: ProductFormProps) {
   const sku = form.watch("sku")
   const brandId = form.watch("brandId")
   const categoryId = form.watch("categoryId")
+  const baseUomId = form.watch("baseUomId")
+  const selectedBaseUom = useMemo(() => (uoms ?? []).find((uom) => uom.id === baseUomId), [baseUomId, uoms])
+
+  useEffect(() => {
+    setVariants((current) => {
+      const nextBaseUomId = baseUomId || undefined
+      let changed = false
+
+      const next = current.map((variant) => {
+        const sameBaseId = variant.baseUomId === nextBaseUomId
+        const sameBaseObject = variant.baseUom?.id === selectedBaseUom?.id
+
+        if (sameBaseId && sameBaseObject) {
+          return variant
+        }
+
+        changed = true
+        return {
+          ...variant,
+          baseUomId: nextBaseUomId,
+          baseUom: selectedBaseUom,
+        }
+      })
+
+      return changed ? next : current
+    })
+  }, [baseUomId, selectedBaseUom])
 
   useEffect(() => {
     if (!sku) {
@@ -124,8 +155,8 @@ export function ProductForm({ product }: ProductFormProps) {
   }
 
   function onSubmit(values: ProductFormValues) {
-    // Images and variants are tracked in local state here and would be
-    // submitted alongside `values` once a real multipart/JSON backend exists.
+    // Images remain local-only until multipart upload lands.
+    // Variants and the base UOM already persist through the live backend.
     const payload: ProductFormValues = { ...values, variants }
 
     if (isEditing) {
@@ -148,6 +179,7 @@ export function ProductForm({ product }: ProductFormProps) {
           <TabsList>
             <TabsTrigger value="basic">Basic Information</TabsTrigger>
             <TabsTrigger value="variants">Variants</TabsTrigger>
+            <TabsTrigger value="uom">UOM</TabsTrigger>
             <TabsTrigger value="images">Images</TabsTrigger>
             <TabsTrigger value="pricing">Pricing</TabsTrigger>
           </TabsList>
@@ -249,6 +281,43 @@ export function ProductForm({ product }: ProductFormProps) {
                           ))}
                         </SelectContent>
                       </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="baseUomId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Base UOM</FormLabel>
+                      <Select
+                        value={field.value || "__none__"}
+                        onValueChange={(value) => field.onChange(value === "__none__" ? "" : value)}
+                        disabled={isEditing}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select base UOM" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="__none__">No base UOM yet</SelectItem>
+                          {(uoms ?? [])
+                            .filter((uom) => uom.isActive)
+                            .map((uom) => (
+                              <SelectItem key={uom.id} value={uom.id}>
+                                {uom.name} ({uom.code})
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        {isEditing
+                          ? "Base UOM is locked after creation to keep transactional conversions consistent."
+                          : "Choose the base unit before generating variants and alternate pack mappings."}
+                      </p>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -398,8 +467,15 @@ export function ProductForm({ product }: ProductFormProps) {
               productId={product?.id ?? "new"}
               brandCode={(brands ?? []).find((b) => b.id === brandId)?.name.slice(0, 4).toUpperCase() ?? "BRD"}
               categoryCode={(categories ?? []).find((c) => c.id === categoryId)?.name.slice(0, 2).toUpperCase() ?? "GN"}
+              baseUomId={selectedBaseUom?.id ?? (baseUomId || undefined)}
+              baseUom={selectedBaseUom}
+              baseUomName={selectedBaseUom?.name}
               basePricing={{ costPrice: form.watch("costPrice"), sellingPrice: form.watch("sellingPrice") }}
             />
+          </TabsContent>
+
+          <TabsContent value="uom" className="mt-4">
+            <VariantUomManager variants={variants} />
           </TabsContent>
 
           <TabsContent value="images" className="mt-4">
@@ -416,6 +492,7 @@ export function ProductForm({ product }: ProductFormProps) {
           <TabsContent value="pricing" className="mt-4">
             <PricingPanel
               value={{
+                baseUomId: baseUomId || undefined,
                 costPrice: form.watch("costPrice"),
                 sellingPrice: form.watch("sellingPrice"),
                 discountPrice: form.watch("discountPrice"),
@@ -429,6 +506,7 @@ export function ProductForm({ product }: ProductFormProps) {
                 form.setValue("wholesalePrice", pricing.wholesalePrice)
                 form.setValue("taxRate", pricing.taxRate)
               }}
+              baseUomLabel={selectedBaseUom?.name}
             />
           </TabsContent>
         </Tabs>

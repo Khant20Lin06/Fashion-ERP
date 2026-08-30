@@ -23,6 +23,7 @@ export const supplierFormSchema = z.object({
   contactPerson: z.string().trim().max(200, "Contact person must be 200 characters or fewer"),
   phone: z.string().trim().max(50, "Phone must be 50 characters or fewer"),
   email: z.union([z.literal(""), z.email("Enter a valid email")]),
+  country: z.string().trim().max(100, "Country must be 100 characters or fewer"),
   paymentTermId: z.string(),
   creditDays: z.number().int().min(0, "Credit days cannot be negative").max(3650, "Credit days is too large"),
   openingBalanceAmount: z

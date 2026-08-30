@@ -12,6 +12,7 @@ const config: Record<AnyPurchaseStatus, { label: string; variant: "default" | "s
   pending_approval: { label: "Pending Approval", variant: "secondary" },
   partially_received: { label: "Partially Received", variant: "secondary" },
   received: { label: "Received", variant: "default" },
+  closed: { label: "Closed", variant: "default" },
   cancelled: { label: "Cancelled", variant: "destructive" },
   completed: { label: "Completed", variant: "default" },
   paid: { label: "Paid", variant: "default" },

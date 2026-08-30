@@ -40,6 +40,8 @@ export type SalesLineItem = {
   productId: string
   productName: string
   sku: string
+  uomId?: string
+  uomLabel?: string
   imageUrl?: string
   color?: string
   size?: string
@@ -57,6 +59,7 @@ export type SalesOrder = {
   orderNumber: string
   customerId: string
   customerName: string
+  priceListId?: string
   items: SalesLineItem[]
   deliveryDate: string
   paymentTerms: string
@@ -171,18 +174,32 @@ export type ProductPerformancePoint = {
   revenue: number
 }
 
+export type ProductPerformanceSummary = {
+  topSelling: ProductPerformancePoint[]
+  slowMoving: ProductPerformancePoint[]
+}
+
 export type CustomerAnalyticsSummary = {
   newCustomers: number
   returningCustomers: number
-  customerLifetimeValue: number
+  averageCustomerSpend: number
+}
+
+export type SalesReportFilters = {
+  branchId?: string
+  fromDate?: string
+  toDate?: string
 }
 
 /** Cart line item — the working-state shape used by the POS cart before checkout. */
 export type CartItem = {
   id: string
+  productVariantId?: string
   productId: string
   productName: string
   sku: string
+  uomId?: string
+  uomLabel?: string
   imageUrl?: string
   color?: string
   size?: string
@@ -196,4 +213,24 @@ export type SalesFilters = {
   customer?: string
   status?: string
   paymentStatus?: string
+}
+
+export type SalesPriceListOption = {
+  id: string
+  code: string
+  name: string
+  currency: string
+}
+
+export type SalesItemPricingPreview = {
+  productVariantId: string
+  priceListId: string
+  uomId?: string
+  uomCode?: string
+  uomName?: string
+  quantity: number
+  baseQuantity: number
+  conversionFactorToBase: string
+  unitPrice: number
+  transactionDate: string
 }

@@ -7,7 +7,6 @@ import { TransactionStatus } from "@/components/accounting/TransactionStatus"
 import { formatCurrency, formatRelativeTime } from "@/lib/format"
 import { useFinancePayments } from "../hooks/usePayments"
 
-/** Recent Transactions widget for the Finance Dashboard — latest recorded payments. */
 export function RecentTransactionsCard() {
   const { data, isLoading } = useFinancePayments()
   const recent = (data ?? [])
@@ -22,7 +21,7 @@ export function RecentTransactionsCard() {
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {isLoading ? (
-          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)
+          Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-14 w-full" />)
         ) : recent.length === 0 ? (
           <EmptyState title="No transactions yet" description="Recorded payments will appear here." />
         ) : (
@@ -31,7 +30,7 @@ export function RecentTransactionsCard() {
               <div className="min-w-0">
                 <p className="font-mono font-medium">{payment.reference}</p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {payment.partyName} · {formatRelativeTime(payment.date)}
+                  {[payment.partyName, payment.relatedReference, formatRelativeTime(payment.date)].filter(Boolean).join(" | ")}
                 </p>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1">

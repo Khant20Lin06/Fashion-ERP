@@ -85,9 +85,39 @@ export async function deleteConversation(conversationId: string): Promise<void> 
   await apiClient.delete(`/ai/conversations/${conversationId}`, { params: { companyId } })
 }
 
+export type AiModelInfo = {
+  id: string
+  name: string
+  /** Null when the provider's catalog doesn't expose pricing — never
+   * estimated. A genuinely free model has 0 here, not null. */
+  promptPricePerMillionTokens: number | null
+  completionPricePerMillionTokens: number | null
+}
+
+export type AiModelsResult = {
+  /** The remote provider's own live catalog (e.g. OpenRouter's full
+   * ~400-model list with real pricing) — never a hardcoded subset. */
+  models: AiModelInfo[]
+  defaultModel: string | null
+}
+
+// GET /ai/chat/models — permission ai_assistant.chat (same as sending a
+// message). Empty `models` means the deployment has no remote tier
+// configured (or the live catalog fetch failed) — the frontend should
+// hide the picker rather than offer a dropdown with nothing selectable.
+export async function fetchAiModels(): Promise<AiModelsResult> {
+  if (USE_MOCK) return delay({ models: [], defaultModel: null })
+  const { data } = await apiClient.get<AiModelsResult>("/ai/chat/models")
+  return data
+}
+
 export type SendChatMessageInput = {
   message: string
   conversationId?: string
+  /** Must be one of fetchAiModels()'s `models` or the backend silently
+   * falls back to its own default — never trust this as a real selection
+   * without that list already having offered it. */
+  model?: string
 }
 
 export async function sendChatMessage(input: SendChatMessageInput): Promise<AiChatResult> {
@@ -119,6 +149,7 @@ export async function sendChatMessage(input: SendChatMessageInput): Promise<AiCh
     message: input.message,
     conversationId: input.conversationId,
     companyId,
+    model: input.model,
   })
   return {
     conversation: mapConversation(data.conversation),
