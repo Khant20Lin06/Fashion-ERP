@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 type ErrorStateProps = {
   title?: string
   message?: string
+  description?: string
   onRetry?: () => void
   className?: string
 }
@@ -15,10 +16,12 @@ type ErrorStateProps = {
  */
 export function ErrorState({
   title = "We couldn't load this",
-  message = "Something went wrong while fetching this data.",
+  message,
+  description,
   onRetry,
   className,
 }: ErrorStateProps) {
+  const displayMessage = message ?? description ?? "Something went wrong while fetching this data."
   return (
     <div
       role="alert"
@@ -32,7 +35,7 @@ export function ErrorState({
       </div>
       <div className="space-y-1">
         <p className="text-sm font-medium text-foreground">{title}</p>
-        <p className="text-sm text-muted-foreground">{message}</p>
+        <p className="text-sm text-muted-foreground">{displayMessage}</p>
       </div>
       {onRetry && (
         <Button size="sm" variant="outline" onClick={onRetry}>

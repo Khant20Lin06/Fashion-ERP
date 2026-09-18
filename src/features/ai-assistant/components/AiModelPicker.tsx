@@ -49,7 +49,7 @@ export function AiModelPicker({
   const selected = models.find((m) => m.id === value)
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={true}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -63,12 +63,18 @@ export function AiModelPicker({
           <ChevronsUpDown className="size-3.5 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 max-h-96 p-0">
+      <PopoverContent
+        align="end"
+        className="w-80 max-h-96 p-0"
+        onWheel={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
+      >
         <Command className="max-h-96">
           <CommandInput placeholder="Search models…" />
           <CommandList
             hideScrollbar={false}
-            className={buildNativeScrollbarClassName("max-h-80")}
+            className={cn(buildNativeScrollbarClassName("max-h-80"), "overscroll-contain")}
+            onWheel={(e) => e.stopPropagation()}
           >
             <CommandEmpty>No model found.</CommandEmpty>
             <CommandGroup>

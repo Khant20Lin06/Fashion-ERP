@@ -5,7 +5,9 @@ import {
   Bot,
   CornerDownLeft,
   History,
+  Loader2,
   MoreHorizontal,
+  PanelLeft,
   Plus,
   RotateCcw,
   Send,
@@ -267,13 +269,16 @@ export function AiAssistantPanel() {
   const deleteConversation = useDeleteConversation()
 
   const [draft, setDraft] = useState("")
+  const [optimisticUserMessage, setOptimisticUserMessage] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<string | undefined>(undefined)
   const [lastSources, setLastSources] = useState<AiChatSource[]>([])
   const [lastMode, setLastMode] = useState<AiChatMode | undefined>(undefined)
   const [lastAttempt, setLastAttempt] = useState<SendChatMessageInput | undefined>(undefined)
   const [mobileView, setMobileView] = useState<"chat" | "history">("chat")
+  const [showHistory, setShowHistory] = useState(true)
   const [historyWidth, setHistoryWidth] = useState(getInitialHistoryWidth)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const resizeStateRef = useRef<{ startX: number; startWidth: number } | null>(null)
 
   const historyGroups = useMemo(() => groupConversations(conversations), [conversations])
@@ -284,7 +289,7 @@ export function AiAssistantPanel() {
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
-  }, [messages, sendMessage.isPending])
+  }, [messages, sendMessage.isPending, optimisticUserMessage])
 
   useEffect(() => {
     window.localStorage.setItem("ai-assistant-history-width", String(historyWidth))
@@ -332,19 +337,24 @@ export function AiAssistantPanel() {
     }
     setLastSources([])
     setLastMode(undefined)
+    setOptimisticUserMessage(null)
     setMobileView("chat")
   }
 
   function submitMessage(input: SendChatMessageInput) {
     setLastAttempt(input)
+    setOptimisticUserMessage(input.message)
     sendMessage.mutate(input, {
       onSuccess: (result) => {
         setActiveConversationId(result.conversation.id)
         setLastSources(result.sources)
         setLastMode(result.mode)
-        setDraft("")
         setLastAttempt(undefined)
+        setOptimisticUserMessage(null)
         setMobileView("chat")
+      },
+      onError: () => {
+        setOptimisticUserMessage(null)
       },
     })
   }
@@ -353,6 +363,10 @@ export function AiAssistantPanel() {
     const trimmed = (overrideMessage ?? draft).trim()
     if (!trimmed || sendMessage.isPending) return
 
+    setDraft("")
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto"
+    }
     submitMessage({
       message: trimmed,
       conversationId: activeConversationId,
@@ -366,6 +380,10 @@ export function AiAssistantPanel() {
     setLastMode(undefined)
     setLastAttempt(undefined)
     setDraft("")
+    setOptimisticUserMessage(null)
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto"
+    }
     setMobileView("chat")
     sendMessage.reset()
   }
@@ -388,10 +406,37 @@ export function AiAssistantPanel() {
   }
 
   function renderChatArea() {
+    const hasMessages = !!(messages && messages.length > 0)
+    const showInitialEmpty = !activeConversationId && !optimisticUserMessage
+    const showLoading = loadingMessages && !optimisticUserMessage
+    const showError = messagesError && !optimisticUserMessage
+    const showEmptyThread = !showInitialEmpty && !showLoading && !showError && !hasMessages && !optimisticUserMessage
+
     return (
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {activeConversation && (
+          <div className="flex items-center justify-between border-b bg-muted/20 px-3 py-2 sm:px-4">
+            <div className="flex items-center gap-2 min-w-0">
+              <span
+                className="truncate text-xs font-medium text-foreground"
+                title={activeConversationTitle}
+              >
+                {activeConversationTitle}
+              </span>
+              <span className="shrink-0 text-[11px] text-muted-foreground">
+                • {formatRelativeTime(activeConversation.createdAt)}
+              </span>
+            </div>
+            {lastMode && (
+              <Badge variant="outline" className="shrink-0 text-[10px] font-normal h-5 px-1.5">
+                {MODE_LABEL[lastMode]}
+              </Badge>
+            )}
+          </div>
+        )}
+
         <ScrollArea className="min-h-0 flex-1 px-3 py-3 sm:px-4 sm:py-4">
-          {!activeConversationId ? (
+          {showInitialEmpty ? (
             <div className="space-y-4">
               <EmptyState
                 title="Ask the AI Assistant"
@@ -417,13 +462,13 @@ export function AiAssistantPanel() {
                 </div>
               </div>
             </div>
-          ) : loadingMessages ? (
+          ) : showLoading ? (
             <div className="flex flex-col gap-4">
               <Skeleton className="h-20 w-[78%] rounded-2xl" />
               <Skeleton className="ml-auto h-14 w-[56%] rounded-2xl" />
               <Skeleton className="h-28 w-[82%] rounded-2xl" />
             </div>
-          ) : messagesError ? (
+          ) : showError ? (
             <ErrorState
               title="Couldn't load this conversation"
               message="Try reloading the thread to continue where you left off."
@@ -431,7 +476,7 @@ export function AiAssistantPanel() {
                 void refetchMessages()
               }}
             />
-          ) : !messages || messages.length === 0 ? (
+          ) : showEmptyThread ? (
             <div className="space-y-4">
               <EmptyState
                 title="No messages yet"
@@ -455,13 +500,24 @@ export function AiAssistantPanel() {
             </div>
           ) : (
             <div className="flex flex-col gap-4">
-              {messages.map((message, index) => (
+              {messages?.map((message, index) => (
                 <AiMessageBubble
                   key={message.id}
                   message={message}
                   sources={index === messages.length - 1 ? lastSources : undefined}
                 />
               ))}
+              {optimisticUserMessage && (
+                <AiMessageBubble
+                  message={{
+                    id: "optimistic-user-msg",
+                    role: "USER",
+                    content: optimisticUserMessage,
+                    model: selectedModel || null,
+                    createdAt: new Date().toISOString(),
+                  }}
+                />
+              )}
             </div>
           )}
 
@@ -480,51 +536,47 @@ export function AiAssistantPanel() {
           <div ref={scrollRef} />
         </ScrollArea>
 
-        {activeConversation && (
-          <div className="border-t px-3 py-2 sm:px-4">
-            <div className="flex items-center justify-between gap-2">
-              <span
-                className="min-w-0 flex-1 truncate text-sm font-medium text-foreground"
-                title={activeConversationTitle}
-              >
-                {activeConversationTitle}
-              </span>
-              {lastMode && (
-                <Badge variant="outline" className="shrink-0 font-normal">
-                  {MODE_LABEL[lastMode]}
-                </Badge>
-              )}
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Started {formatRelativeTime(activeConversation.createdAt)}
-            </p>
-          </div>
-        )}
-
-        <div className="border-t bg-background/95 p-2.5 supports-backdrop-filter:backdrop-blur-sm sm:p-3">
+        <div className="border-t bg-background/95 p-2 sm:p-3 supports-backdrop-filter:backdrop-blur-sm">
           {hasInlineRetry && lastAttempt && (
-            <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-              <span>The last message didn&apos;t go through.</span>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7"
-                onClick={() => submitMessage(lastAttempt)}
-              >
-                <RotateCcw className="size-3.5" />
-                Retry
-              </Button>
+            <div className="mb-2.5 flex items-center justify-between gap-3 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+              <span className="truncate">The last message didn&apos;t go through.</span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => {
+                    setDraft(lastAttempt.message)
+                    sendMessage.reset()
+                  }}
+                >
+                  Restore text
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => submitMessage(lastAttempt)}
+                >
+                  <RotateCcw className="mr-1 size-3.5" />
+                  Retry
+                </Button>
+              </div>
             </div>
           )}
 
-          <div className="rounded-2xl border border-border/70 bg-background p-2 shadow-xs">
+          <div className="rounded-2xl border border-border/80 bg-muted/20 p-1.5 sm:p-2 shadow-xs transition-colors focus-within:border-primary/50 focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/15">
             <div className="flex items-end gap-2">
               <Textarea
+                ref={textareaRef}
                 value={draft}
                 onChange={(e) => {
                   if (sendMessage.isError) sendMessage.reset()
                   setDraft(e.target.value)
+                  e.target.style.height = "auto"
+                  e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
@@ -533,22 +585,41 @@ export function AiAssistantPanel() {
                   }
                 }}
                 placeholder="Ask about sales, inventory, customers, or reports..."
-                rows={2}
-                className="min-h-24 resize-none border-0 bg-transparent px-1 shadow-none focus-visible:ring-0"
+                rows={1}
+                className="min-h-[42px] max-h-40 resize-none border-0 bg-transparent px-2.5 py-2 text-sm shadow-none focus-visible:ring-0 leading-relaxed placeholder:text-muted-foreground/60"
                 maxLength={4000}
               />
-              <Button size="icon" className="mb-1 size-9 shrink-0" onClick={() => handleSend()} disabled={!canSend}>
-                <Send className="size-4" />
+              <Button
+                size="icon"
+                className={cn(
+                  "size-8.5 shrink-0 rounded-xl transition-all duration-150 mb-0.5",
+                  canSend
+                    ? "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 active:scale-95"
+                    : "bg-muted text-muted-foreground/40 hover:bg-muted"
+                )}
+                onClick={() => handleSend()}
+                disabled={!canSend}
+                aria-label={sendMessage.isPending ? "Sending message" : "Send message"}
+              >
+                {sendMessage.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Send className="size-4" />
+                )}
               </Button>
             </div>
 
-            <div className="mt-2 flex items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground">
+            <div className="mt-1 flex items-center justify-between gap-2 px-2 text-[11px] text-muted-foreground/70">
               <span className="inline-flex items-center gap-1">
                 <CornerDownLeft className="size-3" />
-                <span className="hidden sm:inline">Enter to send, Shift+Enter for a new line</span>
+                <span className="hidden sm:inline">Enter to send, Shift+Enter for new line</span>
                 <span className="sm:hidden">Enter sends</span>
               </span>
-              <span>{draft.length}/4000</span>
+              {draft.length > 500 && (
+                <span className={cn(draft.length > 3500 && "text-amber-500 font-medium")}>
+                  {draft.length}/4000
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -564,9 +635,21 @@ export function AiAssistantPanel() {
           className="flex flex-col gap-0 bg-background/95 supports-backdrop-filter:backdrop-blur-sm data-[side=right]:w-full data-[side=right]:sm:max-w-3xl"
         >
           <SheetHeader className="flex-row items-center justify-between gap-2 border-b px-3 py-3 pr-14 space-y-0 sm:px-4 sm:pr-16">
-            <SheetTitle className="flex items-center gap-2">
-              <Bot className="size-5" /> AI Assistant
-            </SheetTitle>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="hidden size-8 shrink-0 text-muted-foreground hover:text-foreground sm:inline-flex"
+                title={showHistory ? "Collapse history" : "Expand history"}
+                onClick={() => setShowHistory((s) => !s)}
+              >
+                <PanelLeft className="size-4" />
+              </Button>
+              <SheetTitle className="flex items-center gap-2 truncate">
+                <Bot className="size-5 shrink-0" /> AI Assistant
+              </SheetTitle>
+            </div>
             {modelsData && modelsData.models.length > 1 && (
               <AiModelPicker
                 models={modelsData.models}
@@ -591,56 +674,60 @@ export function AiAssistantPanel() {
           </div>
 
           <div className="flex min-h-0 flex-1">
-            <div
-              className="hidden min-h-0 shrink-0 flex-col overflow-hidden border-r sm:flex"
-              style={{ width: historyWidth }}
-            >
-              <div className="p-2.5">
-                <Button variant="outline" size="sm" className="w-full justify-start" onClick={handleNewConversation}>
-                  <Plus className="size-4" /> New chat
-                </Button>
-              </div>
+            {showHistory && (
+              <>
+                <div
+                  className="hidden min-h-0 shrink-0 flex-col overflow-hidden border-r sm:flex"
+                  style={{ width: historyWidth }}
+                >
+                  <div className="p-2.5">
+                    <Button variant="outline" size="sm" className="w-full justify-start" onClick={handleNewConversation}>
+                      <Plus className="size-4" /> New chat
+                    </Button>
+                  </div>
 
-              {loadingConversations ? (
-                <div className="flex flex-col gap-2 p-2">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <Skeleton key={i} className="h-12 w-full rounded-xl" />
-                  ))}
+                  {loadingConversations ? (
+                    <div className="flex flex-col gap-2 p-2">
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <Skeleton key={i} className="h-12 w-full rounded-xl" />
+                      ))}
+                    </div>
+                  ) : conversationsError ? (
+                    <div className="p-2">
+                      <ErrorState
+                        title="Couldn't load conversations"
+                        message="Refresh the list to reopen a previous thread."
+                        onRetry={() => {
+                          void refetchConversations()
+                        }}
+                        className="px-3 py-8"
+                      />
+                    </div>
+                  ) : (
+                    <ConversationHistoryList
+                      groups={historyGroups}
+                      activeConversationId={activeConversationId}
+                      onSelect={openConversation}
+                      onRequestDelete={setPendingDelete}
+                    />
+                  )}
                 </div>
-              ) : conversationsError ? (
-                <div className="p-2">
-                  <ErrorState
-                    title="Couldn't load conversations"
-                    message="Refresh the list to reopen a previous thread."
-                    onRetry={() => {
-                      void refetchConversations()
-                    }}
-                    className="px-3 py-8"
-                  />
-                </div>
-              ) : (
-                <ConversationHistoryList
-                  groups={historyGroups}
-                  activeConversationId={activeConversationId}
-                  onSelect={openConversation}
-                  onRequestDelete={setPendingDelete}
-                />
-              )}
-            </div>
 
-            <div className="relative hidden w-3 shrink-0 items-stretch justify-center sm:flex">
-              <button
-                type="button"
-                aria-label="Resize chat history sidebar"
-                title="Drag to resize history sidebar. Double-click to reset width."
-                className="group absolute inset-y-0 left-1/2 flex w-3 -translate-x-1/2 items-center justify-center"
-                onPointerDown={handleResizeStart}
-                onDoubleClick={resetHistoryWidth}
-              >
-                <span className="h-full w-px rounded-full bg-border transition-colors group-hover:bg-foreground/30 group-active:bg-primary" />
-                <span className="absolute h-12 w-1.5 rounded-full bg-border/80 opacity-0 transition-opacity group-hover:opacity-100 group-active:opacity-100" />
-              </button>
-            </div>
+                <div className="relative hidden w-3 shrink-0 items-stretch justify-center sm:flex">
+                  <button
+                    type="button"
+                    aria-label="Resize chat history sidebar"
+                    title="Drag to resize history sidebar. Double-click to reset width."
+                    className="group absolute inset-y-0 left-1/2 flex w-3 -translate-x-1/2 items-center justify-center"
+                    onPointerDown={handleResizeStart}
+                    onDoubleClick={resetHistoryWidth}
+                  >
+                    <span className="h-full w-px rounded-full bg-border transition-colors group-hover:bg-foreground/30 group-active:bg-primary" />
+                    <span className="absolute h-12 w-1.5 rounded-full bg-border/80 opacity-0 transition-opacity group-hover:opacity-100 group-active:opacity-100" />
+                  </button>
+                </div>
+              </>
+            )}
 
             <div className={cn("min-h-0 flex-1 sm:hidden", mobileView === "history" ? "flex" : "hidden")}>
               {loadingConversations ? (

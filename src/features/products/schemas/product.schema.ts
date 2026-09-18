@@ -44,6 +44,16 @@ export const basicInfoSchema = z.object({
   brandId: z.string().min(1, "Brand is required"),
   collectionId: z.string().optional(),
   description: z.string().max(2000).optional(),
+  imageUrl: z.string().max(2048).refine((value) => {
+    if (!value) return true
+    try {
+      const url = new URL(value)
+      const host = url.hostname.toLowerCase().replace(/\.$/, "")
+      return value === value.trim() && url.protocol === "https:" && !url.username && !url.password && !url.port
+        && host.includes(".") && !host.includes(":") && !/^\d+(\.\d+){3}$/.test(host)
+        && !host.split(".").includes("localhost") && !/\.(local|internal|lan|home|test|invalid)$/.test(host)
+    } catch { return false }
+  }, "Use a public HTTPS image URL").optional(),
   season: z.enum(["spring_summer", "autumn_winter", "all_season"]),
   gender: z.enum(["men", "women", "kids", "unisex"]),
 })

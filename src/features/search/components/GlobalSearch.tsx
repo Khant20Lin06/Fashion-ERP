@@ -106,11 +106,7 @@ export function GlobalSearch() {
         )}
 
         {!showRecent && query.trim().length > 0 && !isFetching && (!results || results.length === 0) && (
-          <CommandEmpty>
-            {USE_MOCK
-              ? `No results found for "${query}"`
-              : "Global search isn't available yet — no backend search endpoint exists. Use each module's own list/filter to find records."}
-          </CommandEmpty>
+          <CommandEmpty>No results found for &quot;{query}&quot;</CommandEmpty>
         )}
 
         {Object.entries(groupedResults).map(([type, items]) => (

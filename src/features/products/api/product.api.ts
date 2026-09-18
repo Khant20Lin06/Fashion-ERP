@@ -22,6 +22,7 @@ type BackendProduct = {
   code: string
   name: string
   description: string | null
+  imageUrl?: string | null
   categoryId: string
   brandId: string
   collectionId: string | null
@@ -102,6 +103,7 @@ type CreateProductRequest = {
   code: string
   name: string
   description?: string
+  imageUrl?: string | null
   categoryId: string
   brandId: string
   collectionId?: string
@@ -112,6 +114,7 @@ type CreateProductRequest = {
 type UpdateProductRequest = {
   name?: string
   description?: string
+  imageUrl?: string | null
   categoryId?: string
   brandId?: string
   collectionId?: string
@@ -201,7 +204,7 @@ function mapBackendToProduct(
     baseUomId: firstVariant?.baseUomId,
     baseUom: firstVariant?.baseUom,
     status: mapStatus(product.status),
-    images: [],
+    images: product.imageUrl ? [{ id: `${product.id}-primary`, url: product.imageUrl, isPrimary: true, sortOrder: 0 }] : [],
     variants: mappedVariants,
     pricing: {
       baseUomId: firstVariant?.baseUomId,
@@ -509,6 +512,7 @@ function mapProductFormToCreatePayload(values: ProductFormValues, companyId: str
     code: generateProductCode(),
     name: values.name,
     description: values.description || undefined,
+    imageUrl: values.imageUrl || null,
     categoryId: values.categoryId,
     brandId: values.brandId,
     collectionId: values.collectionId || undefined,
@@ -532,6 +536,7 @@ function mapProductFormToUpdatePayload(values: ProductFormValues): UpdateProduct
   return {
     name: values.name,
     description: values.description || undefined,
+    imageUrl: values.imageUrl === undefined ? undefined : values.imageUrl || null,
     categoryId: values.categoryId,
     brandId: values.brandId,
     collectionId: values.collectionId || undefined,
@@ -599,7 +604,7 @@ export async function createProduct(values: ProductFormValues): Promise<Product>
       gender: values.gender,
       sku: values.sku,
       status: values.status,
-      images: [],
+      images: values.imageUrl ? [{ id: "primary", url: values.imageUrl, isPrimary: true, sortOrder: 0 }] : [],
       variants: [],
       pricing: {
         baseUomId: values.baseUomId,
@@ -663,7 +668,9 @@ export async function updateProduct(id: string, values: ProductFormValues): Prom
   if (USE_MOCK) {
     const existing = mockProducts.find((product) => product.id === id)
     if (!existing) throw new Error("Product not found")
-    return delay({ ...existing, ...values, updatedAt: new Date().toISOString() })
+    return delay({ ...existing, ...values,
+      images: values.imageUrl === undefined ? existing.images : values.imageUrl ? [{ id: `${id}-primary`, url: values.imageUrl, isPrimary: true, sortOrder: 0 }] : [],
+      updatedAt: new Date().toISOString() })
   }
 
   const companyId = await resolveCompanyId()
@@ -714,4 +721,16 @@ export async function checkSkuAvailability(sku: string, excludeProductId?: strin
     params: { sku, excludeProductId },
   })
   return data.available
+}
+
+export async function uploadProductImage(file: File): Promise<string> {
+  const formData = new FormData()
+  formData.append("file", file)
+
+  const { data } = await apiClient.post<{ imageUrl: string }>("/products/upload-image", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  })
+  return data.imageUrl
 }

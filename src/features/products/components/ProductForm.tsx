@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { env } from "@/config/env"
 import {
   Form,
   FormControl,
@@ -26,12 +27,11 @@ import { useCategories } from "../hooks/useCategories"
 import { useBrands, useCollections } from "../hooks/useBrands"
 import { useUoms } from "../hooks/useUoms"
 import { useCreateProduct, useUpdateProduct } from "../hooks/useProductMutation"
-import { checkSkuAvailability } from "../api/product.api"
-import { ImageUploader } from "./ImageUploader"
+import { checkSkuAvailability, uploadProductImage } from "../api/product.api"
 import { PricingPanel } from "./PricingPanel"
 import { VariantManager } from "./VariantManager"
 import { VariantUomManager } from "./VariantUomManager"
-import type { Product, ProductImage, ProductVariant } from "../types"
+import type { Product, ProductVariant } from "../types"
 
 type ProductFormProps = {
   product?: Product
@@ -61,10 +61,11 @@ export function ProductForm({ product }: ProductFormProps) {
   const createProduct = useCreateProduct()
   const updateProduct = useUpdateProduct(product?.id ?? "")
 
-  const [images, setImages] = useState<ProductImage[]>(product?.images ?? [])
   const [variants, setVariants] = useState<ProductVariant[]>(product?.variants ?? [])
   const [skuAvailable, setSkuAvailable] = useState<boolean | undefined>(undefined)
   const [checkingSku, setCheckingSku] = useState(false)
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
+  const [imageMode, setImageMode] = useState<"url" | "upload">("upload")
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
@@ -75,6 +76,7 @@ export function ProductForm({ product }: ProductFormProps) {
       brandId: product?.brandId ?? "",
       collectionId: product?.collectionId,
       description: product?.description ?? "",
+      imageUrl: product?.images.find((image) => image.isPrimary)?.url ?? product?.images[0]?.url ?? "",
       season: product?.season ?? "spring_summer",
       gender: product?.gender ?? "unisex",
       sku: product?.sku ?? "",
@@ -154,9 +156,25 @@ export function ProductForm({ product }: ProductFormProps) {
     form.setValue("sku", `${brandCode}-${categoryCode}-${sequence}`, { shouldValidate: true })
   }
 
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+  
+    try {
+      setIsUploadingImage(true)
+      const url = await uploadProductImage(file)
+      const backendHost = env.NEXT_PUBLIC_API_BASE_URL.replace('/api/v1', '')
+      const fullUrl = url.startsWith('/') ? `${backendHost}${url}` : url
+      form.setValue("imageUrl", fullUrl, { shouldValidate: true })
+    } catch (err) {
+      console.error("Failed to upload image", err)
+    } finally {
+      setIsUploadingImage(false)
+    }
+  }
+
   function onSubmit(values: ProductFormValues) {
-    // Images remain local-only until multipart upload lands.
-    // Variants and the base UOM already persist through the live backend.
+    // The primary image URL, variants and base UOM persist through the backend.
     const payload: ProductFormValues = { ...values, variants }
 
     if (isEditing) {
@@ -481,10 +499,75 @@ export function ProductForm({ product }: ProductFormProps) {
           <TabsContent value="images" className="mt-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Product Images</CardTitle>
+                <CardTitle className="text-base flex items-center justify-between">
+                  Product Images
+                  <div className="flex gap-2">
+                    <Button 
+                      type="button" 
+                      variant={imageMode === "upload" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setImageMode("upload")}
+                    >
+                      Upload File
+                    </Button>
+                    <Button 
+                      type="button" 
+                      variant={imageMode === "url" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setImageMode("url")}
+                    >
+                      Use URL
+                    </Button>
+                  </div>
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <ImageUploader images={images} onChange={setImages} label="Main & Gallery Images" />
+                {imageMode === "url" ? (
+                  <FormField
+                    control={form.control}
+                    name="imageUrl"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Primary image URL</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value ?? ""} type="url" placeholder="https://your-store.com/images/product.jpg" />
+                        </FormControl>
+                        <p className="text-sm text-muted-foreground">
+                          Use a public HTTPS image link. This image appears in the catalog and customer bot. Clear the field to remove it.
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ) : (
+                  <div className="space-y-4">
+                    <FormItem>
+                      <FormLabel>Upload Image</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={handleFileUpload}
+                          disabled={isUploadingImage}
+                        />
+                      </FormControl>
+                      {isUploadingImage && <p className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Uploading...</p>}
+                    </FormItem>
+                    <FormField
+                      control={form.control}
+                      name="imageUrl"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Current Image URL</FormLabel>
+                          <FormControl>
+                            <Input {...field} value={field.value ?? ""} disabled placeholder="Image will appear here after upload" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

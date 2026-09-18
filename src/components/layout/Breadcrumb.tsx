@@ -6,6 +6,10 @@ import { ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 function toTitleCase(segment: string) {
+  // If segment is a UUID, display as "Details" instead of raw UUID
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(segment)) {
+    return "Details"
+  }
   return segment
     .replace(/-/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase())
