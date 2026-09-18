@@ -1,9 +1,9 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { Archive, MoreHorizontal, Package, Pencil, Trash2 } from "lucide-react"
+import { Archive, MoreHorizontal, Package, Pencil, Printer, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -24,6 +24,7 @@ import { useDeleteProduct, useUpdateProductStatus } from "../hooks/useProductMut
 import { useCategories } from "../hooks/useCategories"
 import { useBrands } from "../hooks/useBrands"
 import { useProductStore } from "../stores/product.store"
+import { BatchBarcodePrinter } from "./BatchBarcodePrinter"
 import type { ProductListItem, ProductStatus } from "../types"
 
 const statusVariant: Record<ProductStatus, "default" | "secondary" | "outline"> = {
@@ -133,6 +134,8 @@ export function ProductTable() {
   const { mutate: deleteProduct } = useDeleteProduct()
   const { mutate: updateStatus } = useUpdateProductStatus()
   const { filters, setFilter, resetFilters } = useProductStore()
+  const [printDialogOpen, setPrintDialogOpen] = useState(false)
+  const [printSelectedIds, setPrintSelectedIds] = useState<string[]>([])
 
   const filteredData = useMemo(() => {
     if (!data) return []
@@ -184,7 +187,8 @@ export function ProductTable() {
   )
 
   return (
-    <DataTable
+    <>
+      <DataTable
       columns={tableColumns}
       data={filteredData}
       isLoading={isLoading}
@@ -230,6 +234,14 @@ export function ProductTable() {
       enableRowSelection
       bulkActions={[
         {
+          label: "Print Tags",
+          icon: Printer,
+          onAction: (rows) => {
+            setPrintSelectedIds(rows.map((r) => r.id))
+            setPrintDialogOpen(true)
+          },
+        },
+        {
           label: "Archive",
           icon: Archive,
           onAction: (rows) => rows.forEach((row) => updateStatus({ id: row.id, status: "archived" })),
@@ -245,5 +257,11 @@ export function ProductTable() {
       emptyTitle="No products found"
       emptyDescription="Create your first product to get started."
     />
+    <BatchBarcodePrinter
+      open={printDialogOpen}
+      onOpenChange={setPrintDialogOpen}
+      initialProductIds={printSelectedIds}
+    />
+    </>
   )
 }

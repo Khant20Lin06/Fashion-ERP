@@ -43,6 +43,8 @@ export type OnlineOrderSale = Partial<SalesOrder> & {
   items?: OnlineOrderItem[]
 }
 
+export type CodStatus = "NONE" | "PENDING" | "SETTLED" | "FAILED"
+
 export type OnlineOrder = {
   id: string
   companyId: string
@@ -53,6 +55,13 @@ export type OnlineOrder = {
   telegramUserId: string | null
   telegramUsername: string | null
   deliveryAddress: string
+  courierService?: string | null
+  trackingNumber?: string | null
+  codAmount?: string
+  codStatus?: CodStatus
+  riderName?: string | null
+  riderPhone?: string | null
+  settledAt?: string | null
   statusUpdatedAt: string | null
   createdAt: string
   updatedAt: string

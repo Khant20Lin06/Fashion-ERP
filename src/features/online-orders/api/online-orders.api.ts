@@ -83,10 +83,42 @@ export async function updateOnlineOrderStatus(id: string, status: OnlineOrderSta
   }
   
   const resolvedCompanyId = await resolveCompanyId(companyId)
-  // Backend might have a specific endpoint for status update or a general PATCH
   const { data } = await apiClient.patch<OnlineOrder>(`/online-orders/${id}/status`, { status }, {
     params: { companyId: resolvedCompanyId },
   })
   
+  return data
+}
+
+export async function dispatchOnlineOrder(
+  id: string,
+  payload: {
+    courierService: string
+    trackingNumber?: string
+    codAmount?: string
+    riderName?: string
+    riderPhone?: string
+  },
+  companyId?: string,
+): Promise<OnlineOrder> {
+  const resolvedCompanyId = await resolveCompanyId(companyId)
+  const { data } = await apiClient.post<OnlineOrder>(`/online-orders/${id}/dispatch`, payload, {
+    params: { companyId: resolvedCompanyId },
+  })
+  return data
+}
+
+export async function settleOnlineOrderCod(
+  id: string,
+  payload: {
+    collectedAmount: string
+    notes?: string
+  },
+  companyId?: string,
+): Promise<OnlineOrder> {
+  const resolvedCompanyId = await resolveCompanyId(companyId)
+  const { data } = await apiClient.post<OnlineOrder>(`/online-orders/${id}/settle-cod`, payload, {
+    params: { companyId: resolvedCompanyId },
+  })
   return data
 }

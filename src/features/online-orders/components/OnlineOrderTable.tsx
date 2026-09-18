@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Eye, MoreHorizontal, MessageCircle } from "lucide-react"
+import { Eye, MoreHorizontal, MessageCircle, Truck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -17,6 +17,7 @@ import {
   type FilterValues,
 } from "@/components/data-table"
 import { OnlineOrderStatusBadge } from "./OnlineOrderStatusBadge"
+import { CodStatusBadge } from "./CodStatusBadge"
 import { formatCurrency } from "@/lib/format"
 import { useOnlineOrders } from "../hooks/useOnlineOrders"
 import type { OnlineOrder } from "../types"
@@ -31,6 +32,7 @@ export function OnlineOrderTable() {
     return data.filter((order) => {
       if (filters.status && order.status !== filters.status) return false
       if (filters.source && order.source !== filters.source) return false
+      if (filters.codStatus && order.codStatus !== filters.codStatus) return false
       return true
     })
   }, [data, filters])
@@ -74,9 +76,49 @@ export function OnlineOrderTable() {
       cell: ({ row }) => {
         const source = row.getValue<string>("source")
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {source === "TELEGRAM" && <MessageCircle className="h-4 w-4 text-blue-500" />}
             <span className="text-sm">{source}</span>
+          </div>
+        )
+      },
+    },
+    {
+      id: "delivery",
+      header: ({ column }) => <ColumnHeader column={column} title="Courier & Tracking" />,
+      cell: ({ row }) => {
+        const courier = row.original.courierService
+        const tracking = row.original.trackingNumber
+        if (!courier && !tracking) {
+          return <span className="text-xs text-muted-foreground">Unassigned</span>
+        }
+        return (
+          <div className="flex flex-col text-xs">
+            <span className="font-medium flex items-center gap-1">
+              <Truck className="size-3 text-muted-foreground" />
+              {courier || "Courier"}
+            </span>
+            {tracking && (
+              <span className="font-mono text-muted-foreground">{tracking}</span>
+            )}
+          </div>
+        )
+      },
+    },
+    {
+      id: "cod",
+      header: ({ column }) => <ColumnHeader column={column} title="COD Status" />,
+      cell: ({ row }) => {
+        const status = row.original.codStatus
+        const amount = row.original.codAmount
+        return (
+          <div className="flex flex-col gap-0.5">
+            <CodStatusBadge status={status} />
+            {amount && parseFloat(amount) > 0 && (
+              <span className="text-xs font-mono font-medium text-muted-foreground">
+                {formatCurrency(parseFloat(amount))}
+              </span>
+            )}
           </div>
         )
       },
@@ -138,6 +180,16 @@ export function OnlineOrderTable() {
           ],
         },
         {
+          key: "codStatus",
+          label: "COD Status",
+          options: [
+            { label: "COD Pending", value: "PENDING" },
+            { label: "COD Settled", value: "SETTLED" },
+            { label: "Prepaid / None", value: "NONE" },
+            { label: "COD Failed", value: "FAILED" },
+          ],
+        },
+        {
           key: "source",
           label: "Source",
           options: [
@@ -145,7 +197,7 @@ export function OnlineOrderTable() {
             { label: "Website", value: "WEBSITE" },
             { label: "Facebook", value: "FACEBOOK" },
           ],
-        }
+        },
       ]}
       filterValues={filters}
       onFilterChange={setFilters}
