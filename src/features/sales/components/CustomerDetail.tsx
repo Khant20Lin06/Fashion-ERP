@@ -1,17 +1,23 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
-import { Pencil, User } from "lucide-react"
+import { MessageSquare, Pencil, Send, User } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Textarea } from "@/components/ui/textarea"
 import { ReturnStatusBadge } from "@/components/sales/ReturnStatusBadge"
 import { LoyaltyCard } from "@/components/sales/LoyaltyCard"
 import { formatCurrency, formatRelativeTime } from "@/lib/format"
-import { useCustomerAnalytics } from "../hooks/useCustomers"
+import {
+  useCustomerAnalytics,
+  useCustomerNotes,
+  useCreateCustomerNote,
+} from "../hooks/useCustomers"
 import { useInvoices } from "../hooks/useInvoice"
 import { useSalesReturns } from "../hooks/useInvoice"
 import { useLoyaltyTransactions } from "../hooks/useInvoice"
@@ -27,9 +33,23 @@ export function CustomerDetail({ customer }: CustomerDetailProps) {
   const { data: invoices } = useInvoices()
   const { data: returns } = useSalesReturns()
   const { data: loyaltyTransactions } = useLoyaltyTransactions(customer.id)
+  const { data: notes, isLoading: loadingNotes } = useCustomerNotes(customer.id)
+  const createNoteMutation = useCreateCustomerNote(customer.id)
+  const [newNoteContent, setNewNoteContent] = useState("")
+  const [newNoteType, setNewNoteType] = useState("NOTE")
 
   const customerInvoices = (invoices ?? []).filter((i) => i.customerId === customer.id)
   const customerReturns = (returns ?? []).filter((r) => r.customerId === customer.id)
+
+  const handleAddNote = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newNoteContent.trim()) return
+    await createNoteMutation.mutateAsync({
+      content: newNoteContent.trim(),
+      noteType: newNoteType,
+    })
+    setNewNoteContent("")
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -41,9 +61,27 @@ export function CustomerDetail({ customer }: CustomerDetailProps) {
           <div className="space-y-1">
             <h1 className="text-xl font-semibold tracking-tight">{customer.name}</h1>
             <p className="text-sm text-muted-foreground">{customer.phone}</p>
-            {customer.loyaltyMember && (
-              <Badge className="capitalize">{customer.memberLevel} Member</Badge>
-            )}
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              {customer.loyaltyMember && (
+                <Badge className="capitalize">{customer.memberLevel} Member</Badge>
+              )}
+              {analytics?.rfmSegment && (
+                <Badge
+                  variant="outline"
+                  className={
+                    analytics.rfmSegment === "VIP"
+                      ? "border-purple-500 bg-purple-50 text-purple-700 font-semibold"
+                      : analytics.rfmSegment === "Loyal"
+                      ? "border-blue-500 bg-blue-50 text-blue-700"
+                      : analytics.rfmSegment === "At-Risk"
+                      ? "border-amber-500 bg-amber-50 text-amber-700"
+                      : "border-slate-300 text-muted-foreground"
+                  }
+                >
+                  RFM: {analytics.rfmSegment}
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
         <Button asChild>
@@ -61,6 +99,7 @@ export function CustomerDetail({ customer }: CustomerDetailProps) {
           <TabsTrigger value="payments">Payments</TabsTrigger>
           <TabsTrigger value="loyalty">Loyalty Points</TabsTrigger>
           <TabsTrigger value="preferences">Preferences</TabsTrigger>
+          <TabsTrigger value="crm">CRM & Notes</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4">
@@ -203,6 +242,109 @@ export function CustomerDetail({ customer }: CustomerDetailProps) {
               <DetailField label="Country / City" value={`${customer.country} / ${customer.city}`} />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="crm" className="mt-4">
+          <div className="flex flex-col gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Log Customer Interaction & Notes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleAddNote} className="flex flex-col gap-4">
+                  <div className="flex flex-wrap gap-2">
+                    {["NOTE", "PREFERENCE", "VISIT", "COMPLAINT"].map((type) => (
+                      <button
+                        type="button"
+                        key={type}
+                        onClick={() => setNewNoteType(type)}
+                        className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                          newNoteType === type
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-input bg-background hover:bg-muted"
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+                  <Textarea
+                    placeholder="Write fitting remarks, preferred styles, special requests, or visit notes..."
+                    value={newNoteContent}
+                    onChange={(e) => setNewNoteContent(e.target.value)}
+                    rows={3}
+                  />
+                  <div className="flex justify-end">
+                    <Button
+                      type="submit"
+                      disabled={createNoteMutation.isPending || !newNoteContent.trim()}
+                      className="gap-2"
+                    >
+                      <Send className="size-4" />
+                      {createNoteMutation.isPending ? "Saving..." : "Save Note"}
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Interaction Timeline ({notes?.length ?? 0})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingNotes ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-16 w-full mb-3" />
+                  ))
+                ) : !notes || notes.length === 0 ? (
+                  <EmptyState
+                    title="No customer notes yet"
+                    description="Record personal customer preferences, size remarks, or visit notes to build long-term relationships."
+                  />
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {notes.map((n) => (
+                      <div
+                        key={n.id}
+                        className="flex flex-col gap-2 rounded-lg border p-4 text-sm bg-card shadow-xs"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant="outline"
+                              className={
+                                n.noteType === "COMPLAINT"
+                                  ? "border-destructive text-destructive"
+                                  : n.noteType === "PREFERENCE"
+                                  ? "border-purple-400 text-purple-600"
+                                  : n.noteType === "VISIT"
+                                  ? "border-blue-400 text-blue-600"
+                                  : "border-muted-foreground"
+                              }
+                            >
+                              {n.noteType}
+                            </Badge>
+                            <span className="font-medium text-foreground">
+                              {n.user?.displayName || n.user?.firstName || "Staff"}
+                            </span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {formatRelativeTime(n.createdAt)}
+                          </span>
+                        </div>
+                        <p className="whitespace-pre-wrap text-muted-foreground">
+                          {n.content}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

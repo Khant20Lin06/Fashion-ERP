@@ -3,9 +3,11 @@ import { toast } from "sonner"
 import { toastApiError } from "@/lib/api/errors"
 import {
   createCustomer,
+  createCustomerNote,
   deleteCustomer,
   fetchCustomerAnalytics,
   fetchCustomerById,
+  fetchCustomerNotes,
   fetchCustomers,
   updateCustomer,
 } from "../api/customer.api"
@@ -68,5 +70,26 @@ export function useDeleteCustomer() {
       toast.success("Customer deleted")
     },
     onError: (error) => toastApiError(error, "Failed to delete customer"),
+  })
+}
+
+export function useCustomerNotes(customerId: string | undefined) {
+  return useQuery({
+    queryKey: ["customers", customerId, "notes"],
+    queryFn: () => fetchCustomerNotes(customerId as string),
+    enabled: !!customerId,
+  })
+}
+
+export function useCreateCustomerNote(customerId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (data: { content: string; noteType?: string }) =>
+      createCustomerNote(customerId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["customers", customerId, "notes"] })
+      toast.success("Note added")
+    },
+    onError: (error) => toastApiError(error, "Failed to add note"),
   })
 }

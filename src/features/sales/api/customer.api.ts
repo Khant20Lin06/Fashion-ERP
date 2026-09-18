@@ -1,7 +1,7 @@
 import { apiClient } from "@/lib/api/client"
 import { resolveCompanyId } from "@/lib/api/resolve-company-id"
 import { env } from "@/config/env"
-import type { Customer, CustomerAnalytics } from "../types"
+import type { Customer, CustomerAnalytics, CustomerNote } from "../types"
 import type { CustomerFormValues } from "../schemas/customer.schema"
 import { mockCustomerAnalytics, mockCustomers } from "./mock-data"
 
@@ -70,13 +70,43 @@ export async function fetchCustomerById(id: string): Promise<Customer | undefine
   return mapBackendCustomerToCustomer(data)
 }
 
-// No `/customers/:id/analytics` (or equivalent) endpoint exists anywhere in
-// the backend — confirmed against customers.controller.ts's full route
-// table. Genuine BACKEND GAP: returns undefined rather than a hardcoded
-// zeroed object that looked identical to real (but empty) data.
 export async function fetchCustomerAnalytics(id: string): Promise<CustomerAnalytics | undefined> {
   if (USE_MOCK) return delay(mockCustomerAnalytics[id])
-  return undefined
+  try {
+    const companyId = await resolveCompanyId()
+    const { data } = await apiClient.get<CustomerAnalytics>(`/customers/${id}/analytics`, {
+      params: { companyId },
+    })
+    return data
+  } catch (error) {
+    console.error("Error fetching customer analytics:", error)
+    return undefined
+  }
+}
+
+export async function fetchCustomerNotes(id: string): Promise<CustomerNote[]> {
+  if (USE_MOCK) return delay([])
+  try {
+    const companyId = await resolveCompanyId()
+    const { data } = await apiClient.get<CustomerNote[]>(`/customers/${id}/notes`, {
+      params: { companyId },
+    })
+    return data ?? []
+  } catch (error) {
+    console.error("Error fetching customer notes:", error)
+    return []
+  }
+}
+
+export async function createCustomerNote(
+  id: string,
+  note: { content: string; noteType?: string },
+): Promise<CustomerNote> {
+  const companyId = await resolveCompanyId()
+  const { data } = await apiClient.post<CustomerNote>(`/customers/${id}/notes`, note, {
+    params: { companyId },
+  })
+  return data
 }
 
 export async function createCustomer(values: CustomerFormValues): Promise<Customer> {

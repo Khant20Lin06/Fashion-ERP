@@ -28,10 +28,57 @@ export type Customer = {
 
 export type CustomerAnalytics = {
   totalPurchase: number
+  totalOrders?: number
   averageOrderValue: number
   lastPurchaseDate: string
   favoriteCategories: string[]
   favoriteBrands: string[]
+  rfmSegment?: string
+}
+
+export type CustomerNote = {
+  id: string
+  customerId: string
+  noteType: string
+  content: string
+  createdAt: string
+  user?: {
+    id: string
+    displayName?: string
+    firstName?: string
+    email: string
+  }
+}
+
+export type PosShift = {
+  id: string
+  companyId: string
+  branchId: string
+  cashierId: string
+  shiftNumber: string
+  status: "OPEN" | "CLOSED"
+  openedAt: string
+  closedAt: string | null
+  openingCash: string
+  expectedCash: string
+  actualCash: string | null
+  cashDifference: string | null
+  totalSalesAmount: string
+  totalSalesCount: number
+  totalReturnsAmount: string
+  paymentSummary: Record<string, number> | null
+  notes: string | null
+  cashier?: {
+    id: string
+    displayName?: string
+    firstName?: string
+    email: string
+  }
+  branch?: {
+    id: string
+    name: string
+    code: string
+  }
 }
 
 /** A single line item shared across Cart / Sales Order / Invoice / Return. */
