@@ -87,6 +87,7 @@ export const navigationTree: NavItem[] = [
       { label: "POS", href: "/dashboard/sales/pos", icon: ShoppingCart, module: "sales", requiredAction: "create" },
       { label: "Sales Orders", href: "/dashboard/sales/orders", icon: ClipboardList, module: "sales", requiredAction: "view" },
       { label: "Online Orders", href: "/dashboard/sales/online-orders", icon: ShoppingBag, module: "sales", requiredAction: "view" },
+      { label: "Omnichannel / Social", href: "/dashboard/sales/channels", icon: Store, module: "sales", requiredAction: "view" },
       { label: "Sales Invoice", href: "/dashboard/sales/invoices", icon: Receipt, module: "sales", requiredAction: "view" },
       { label: "Customers", href: "/dashboard/sales/customers", icon: Users, module: "customers", requiredAction: "view" },
       { label: "Returns", href: "/dashboard/sales/returns", icon: Undo2, module: "sales_returns", requiredAction: "edit" },
